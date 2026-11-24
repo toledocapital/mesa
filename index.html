@@ -1047,6 +1047,9 @@ function calc(){
   }
   if(leitura.rpvSucumbencial){ const si = leitura.sucInfo||{}; add("PROCEDIMENTAL", `Há RPV de honorários sucumbenciais${si.mov?" (mov. "+si.mov+")":""}${si.valor?", de "+brl(si.valor):""}${si.quem?", em favor de "+si.quem.trim():""}. É crédito do advogado, não do autor: foi ignorada. O cálculo usa só o requisitório do autor${leitura.movOficio?" (mov. "+leitura.movOficio+")":""}.`); }
   if(prevCorrigida) add("MÉDIO", `O ofício veio com previdência zerada e a verba não foi declarada sem incidência pela contadoria. Aplicada a regra da casa: ${brl(prev)}. O líquido do tribunal pode estar acima do que será pago.`);
+  if(f.ente==="goiania" && SERVIDOR(f.credorTipo) && !(num(f.outras)>0)) add("MÉDIO", "Servidor municipal de Goiânia: há desconto de IMAS (plano de saúde municipal — Lei 8.095/2002) que não está incluído. Verificar no contracheque/cálculo da Prefeitura o valor do IMAS-SAÚDE e lançar no campo 'Plano de saúde'. Sem esse valor, o líquido está superestimado.");
+  if(leitura.indBloqueada) add("PROCEDIMENTAL", `A Mesa encontrou menção a "${leitura.indBloqueada}" no processo, mas há evidência de que o credor é servidor público (contracheques, matrícula, progressão funcional). A classificação como indenização isenta foi BLOQUEADA. Conferir se a verba é realmente remuneratória.`);
+  if(leitura.particularPorOficio && sServ>0) add("MÉDIO", `O ofício veio com previdência zero e IR preenchido, e a Mesa classificou como "particular" (não servidor). Porém há ${sServ} menção(ões) a termos de servidor no processo (contracheque, matrícula, cargo). CONFERIR: se for servidor, a previdência está zerada indevidamente.`);
   if(irCorrigido) add("MÉDIO", `O ofício veio com IR zero, mas o RRA dá ${brl(ir)}. Usado o valor recalculado.`);
   ultimo = {f, bruto, principal, principalInformado, hon, honPct, prev, prevNota, prevRegra, ir, irObj, irNota, irRegra, outras, base, des, preco, T, mod, modNota, R, nm, fed, liqTrib, liqRecalc, difLiq, divergeLiq, prevCorrigida, irCorrigido, irSemConferencia, irRefeito, pergMeses, pergCred, irDiverge, liqTribRef, semDestaque, liqComDestaque, irComprador, prevC, irC, honCli, honCliPct, honCliRespondido};
   ultimo.gate = portao(ultimo); window.__ultimo = ultimo; window.__leitura = leitura;
@@ -1691,7 +1694,7 @@ function analisarTexto(){
   if(sLoas>=2 && !(leitura.cAux > 3*sLoas)){ ct = "loas"; ctSrc = "autos"; }
   else if(ente==="inss"){ ct = "beneficio"; ctSrc = enteSrc==="padrao" ? "padrao" : "autos"; }
   else if(O.prev>0 || (O.assunto && /Servidor\s+P[úu]blico|Militar/i.test(O.assunto))){ ct = (O.condicao && /Inativo|Pension|Aposent/i.test(O.condicao)) || (C.inativo && !C.ativo) ? "aposentado" : "ativo"; ctSrc = "oficio"; }
-  else if(E.oficio && O.prev===0 && O.ir!=null){ ct = "particular"; ctSrc = "oficio"; }
+  else if(E.oficio && O.prev===0 && O.ir!=null && !O.semIncidencia){ ct = "particular"; ctSrc = "oficio"; leitura.particularPorOficio = true; }
   else if(C.ativo){ ct = "ativo"; ctSrc = "autos"; }
   else if(C.inativo){ ct = "aposentado"; ctSrc = "autos"; }
   // Sem ofício/CUC claros: lê o processo inteiro (petição, contracheques, fichas funcionais)
@@ -1699,18 +1702,21 @@ function analisarTexto(){
   const limpo = all.replace(/proventos\s+de\s+(?:aposentadoria|inatividade)|c[áa]lculos?\s+dos\s+proventos|incorpor[áa]vel\s+aos\s+proventos|computáveis\s+nos\s+c[áa]lculos/gi," ");
   const sApos = (limpo.match(/servidor[a]?\s+(?:p[úu]blic[oa]\s+)?(?:estadual\s+|municipal\s+)?(?:aposentad[oa]|inativ[oa])|\baposentad[oa]\s+(?:desde|em|pel[oa])|\bpensionista\b|pens[ãa]o\s+por\s+morte|ato\s+de\s+aposentadoria|Condena[çc][ãa]o\s*:\s*Inativos|Situa[çc][ãa]o(?:\s+funcional)?\s*:\s*(?:APOSENTAD|INATIV)/gi)||[]).length;
   const sAtivo = (limpo.match(/servidor[a]?\s+(?:p[úu]blic[oa]\s+)?(?:estadual\s+|municipal\s+)?(?:efetiv[oa]|ativ[oa]|em\s+atividade)|\blotad[oa]\s+(?:na|no|em)\b|em\s+efetivo\s+exerc[íi]cio|ocupante\s+do\s+cargo|exerce\s+o\s+cargo|Condena[çc][ãa]o\s*:\s*Ativos|Situa[çc][ãa]o(?:\s+funcional)?\s*:\s*ATIV/gi)||[]).length;
-  const sServ = cntR(/servidor[a]?\s+p[úu]blic[oa]|matr[íi]cula\s+funcional|contracheque|holerite|ficha\s+funcional|cargo\s+efetivo|\bPM\b|policial\s+militar|professor[a]?\s+(?:da\s+rede|efetiv)/gi);
+  const sServ = cntR(/servidor[a]?\s+p[úu]blic[oa]|matr[íi]cula\s+funcional|contracheque|holerite|ficha\s+funcional|cargo\s+efetivo|\bPM\b|policial\s+militar|professor[a]?\s+(?:da\s+rede|efetiv)|progress[ãa]o\s+(?:horizontal|vertical|funcional)/gi);
   leitura.credScore = {apos: sApos, ativo: sAtivo, serv: sServ};
   const nomeacao = all.match(/(?:admitid[oa]|nomead[oa]|empossad[oa]|tomou\s+posse|entrou\s+em\s+exerc[íi]cio|data\s+de\s+(?:admiss[ãa]o|posse|ingresso|exerc[íi]cio))[^\n]{0,80}?(\d{2})\/(\d{2})\/(\d{4})/i);
   const ingressoDepois = nomeacao ? ((+nomeacao[3])*10000 + (+nomeacao[2])*100 + (+nomeacao[1]) > 20170706) : null;
   if(nomeacao) leitura.ingresso = `${nomeacao[1]}/${nomeacao[2]}/${nomeacao[3]}`;
-  const naoServAssunto = /indeniza|dano\s+moral|desapropria|fornec|contrato\s+administrativo|repeti[çc][ãa]o\s+de\s+ind[ée]bito|tribut|loca[çc][ãa]o|aluguel|obra/i.test((O.assunto||"") + " " + all.slice(0, 20000));
+  const assuntoETexto = (O.assunto||"") + " " + all.slice(0, 20000);
+  const verbaServidor = /progress[ãa]o\s+(?:horizontal|vertical|funcional)|quinqu[êe]nio|adicional\s+(?:de\s+tempo|noturno|insalubridade|periculosidade)|reenquadramento|reajuste\s+(?:salarial|remunerat)|diferen[çc]as?\s+(?:salariais|remunerat|de\s+vencimentos)|incorpora[çc][ãa]o|GID|GDATA|GDPGPE|gratifica[çc][ãa]o/i.test(assuntoETexto);
+  const naoServAssunto = !verbaServidor && /indeniza|dano\s+moral|desapropria|fornec|contrato\s+administrativo|repeti[çc][ãa]o\s+de\s+ind[ée]bito|tribut|loca[çc][ãa]o|aluguel|obra/i.test(assuntoETexto);
   const condCuc = (all.match(/Condena[çc][ãa]o\s*:\s*(Ativos|Inativos|Pensionistas)/i)||[])[1];
-  if(condCuc && (!ct || ctSrc!=="autos" || true) && !["loas","beneficio","particular"].includes(ct) && !(O.condicao)){ ct = /Ativ/i.test(condCuc) ? (ingressoDepois ? "ativo17" : "ativo") : "aposentado"; ctSrc = "autos"; }
+  if(condCuc && (!ct || ctSrc!=="autos" || true) && !["loas","beneficio"].includes(ct) && !(O.condicao)){ ct = /Ativ/i.test(condCuc) ? (ingressoDepois ? "ativo17" : "ativo") : "aposentado"; ctSrc = "autos"; }
   else if(!ct || (ctSrc==="oficio" && !O.condicao && !(C.ativo||C.inativo))){
     let auto = null;
     if(sApos>=3 && sApos >= 3*Math.max(1,sAtivo)) auto = "aposentado";
     else if(sAtivo>=3 && sAtivo >= 3*Math.max(1,sApos)) auto = ingressoDepois ? "ativo17" : "ativo";
+    else if(verbaServidor && (sServ>0 || sApos>0 || sAtivo>0)) auto = sApos>sAtivo ? "aposentado" : (ingressoDepois ? "ativo17" : "ativo");
     else if(!ct && sServ===0 && sApos===0 && sAtivo===0 && naoServAssunto) auto = "particular";
     if(auto){ ct = auto; ctSrc = "autos"; leitura.credAuto = true; }
   }
@@ -1720,10 +1726,13 @@ function analisarTexto(){
     const liqOf = O.liquido>0 ? O.liquido : (O.aposReserva>0 ? O.aposReserva : 0);
     const semRet = O.bruto>0 && liqOf>0 && !O.temPrevIR && Math.abs(O.bruto - (O.honor||0) - liqOf) < 0.05;
     const comum = /comum/i.test(O.natureza||"") && !/alim/i.test(O.natureza||"");
-    if((semRet || comum) && (mRest || mInd) && !["loas","beneficio"].includes(ct)){
+    const temEvidServ = sServ > 0 || sApos > 0 || sAtivo > 0 || SERVIDOR(ct);
+    if((semRet || comum) && (mRest || mInd) && !["loas","beneficio"].includes(ct) && !temEvidServ){
       ct = mRest ? "restituicao" : "indenizacao"; ctSrc = "autos";
       leitura.naturezaIsenta = (mRest||mInd)[0].replace(/\s+/g," ").trim().slice(0,90);
       ficha.prevOficio = "0"; src.prevOficio = "oficio"; leitura.semIncidencia = true;
+    } else if((mRest || mInd) && temEvidServ && !SERVIDOR(ct)){
+      leitura.indBloqueada = (mRest||mInd)[0].replace(/\s+/g," ").trim().slice(0,90);
     } }
   if(!ct){ ct = "ativo"; ctSrc = "conservador"; leitura.credConservador = true; }
   ficha.credorTipo = ct; src.credorTipo = ctSrc;
