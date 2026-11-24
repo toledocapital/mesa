@@ -965,6 +965,7 @@ function calc(){
   if(f.credorTipo==="indenizacao"){ irNota = "Isento"; irRegra = "Indenização por dano moral: não incide imposto de renda."; }
   else if(f.credorTipo==="restituicao"){ irNota = "Não incide"; irRegra = `Restituição de valores descontados indevidamente (${leitura.naturezaIsenta||"devolução de desconto/tributo"}): não é rendimento novo, então não há IR nem previdência. O próprio ofício não traz retenção.`; }
   else if(f.credorTipo==="loas" && !fed){ irNota = "Isento"; irRegra = "Benefício assistencial (LOAS/BPC) não é rendimento tributável."; }
+  else if(!fed && leitura.semIncidencia){ irNota = "Não incide"; irRegra = `A contadoria (CUC) classificou a verba${leitura.verba?" ("+leitura.verba.toLowerCase()+")":""} como sem incidência de deduções legais${irOf===0?" e o ofício confirma IR zero":""}. IR não aplicado.`; }
   else if(fed && leitura.justicaEstadual){
     if(leitura.beneficioIsento){ irNota = "Isento"; irRegra = `Decisão da Justiça Estadual (competência acidentária/delegada): não se aplica a retenção de 3% da Lei 10.833/2003, art. 27, que é só para a Justiça Federal. O benefício (${leitura.beneficioIsento}) é isento de IR (IN RFB 1.500/2014, art. 6º, XI).`; }
     else { irNota = "Conferir"; irSemConferencia = true; irRegra = "Decisão da Justiça Estadual contra o INSS: não se aplica a retenção de 3% (só Justiça Federal). Se o benefício for tributável (aposentadoria, pensão), o IR é pelo RRA, retido no pagamento: conferir o número de meses com o Dr. Paulo."; }
