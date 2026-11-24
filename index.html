@@ -1403,7 +1403,7 @@ function lerEstruturado(pgs){
   out.cessionario = nomeCess;
   const reDef = /DEFIRO\s+a\s+cess[ãa]o|cess[ãa]o\s+de\s+cr[ée]dito\s+(?:foi\s+)?(?:homologada|deferida)|HOMOLOGO,?\s+(?:desde\s+logo,?\s+)?a\s+cess[ãa]o|defiro\s+o\s+pedido\s+de\s+habilita[çc][ãa]o|efetive-se\s+a\s+substitui[çc][ãa]o\s+processual\s+e\s+o\s+respectivo\s+registro\s+da\s+cess[ãa]o/i;
   const reIndef = /indefiro,?\s+(?:por\s+ora,?\s+)?o\s+pedido\s+formulado\s+pelo\s+cession[áa]rio|deixo\s+de\s+admiti-lo/i;
-  const reHab = /HABILITA[ÇC][ÃA]O\s+D[OA]S?\s+CESSION[ÁA]RI|instrumento\s+(?:particular|p[úu]blico)\s+de\s+cess[ãa]o|escritura\s+p[úu]blica\s+de\s+cess[ãa]o|termo\s+de\s+cess[ãa]o/i;
+  const reHab = /HABILITA[ÇC][ÃA]O\s+D[OA]S?\s+CESSION[ÁA]RI|instrumento\s+(?:particular|p[úu]blico)\s+de\s+cess[ãa]o|escritura\s+p[úu]blica\s+de\s+cess[ãa]o|termo\s+de\s+cess[ãa]o\s+de\s+cr[ée]dito/i;
   const dataPg = i => { for(let j=i;j<Math.min(i+6,pgs.length);j++){ if(movOf(pgs[j])!==movOf(pgs[i])) break; const d = pgs[j].match(/Publicado Digitalmente em\s*(\d{2}\/\d{2}\/\d{4})/i); if(d) return d[1]; } return null; };
   let iDef = -1; pgs.forEach((p,i)=>{ if(reDef.test(p)) iDef = i; });
   const iHab = pgs.findIndex(p=>reHab.test(p)), iIndef = pgs.findIndex(p=>reIndef.test(p));
@@ -1625,7 +1625,8 @@ function analisarTexto(){
   else if(C.total>0){ ficha.bruto = numInput(C.total); src.bruto = "autos"; }
   else { const t = uniq.filter(a=>a.lbl==="total").sort((a,b)=>b.v-a.v)[0]; if(t){ ficha.bruto = numInput(t.v); src.bruto = "autos"; } }
   if(C.principal>0){ ficha.principal = numInput(C.principal); src.principal = "autos"; }
-  leitura.semIncidencia = (O.prev===0 && (O.semIncidencia || C.semIncidencia)) || (C.semIncidencia && !(O.prev>0));
+  const cucCertNaoIncide = /[Nn][ãa]o\s+incidem\s+dedu[çc][õo]es\s+legais\s+nesse\s+tipo\s+de\s+c[áa]lculo\s+em\s+raz[ãa]o\s+de\s+sua\s+natureza/i.test(all);
+  leitura.semIncidencia = (O.prev===0 && (O.semIncidencia || C.semIncidencia || cucCertNaoIncide)) || (C.semIncidencia && !(O.prev>0)) || cucCertNaoIncide;
   leitura.verba = C.verba || null;
   if(O.prev!=null){ ficha.prevOficio = numInput(O.prev); src.prevOficio = "oficio"; }
   else if(C.prev!=null){ ficha.prevOficio = numInput(C.prev); src.prevOficio = "autos"; }
