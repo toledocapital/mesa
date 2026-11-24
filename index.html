@@ -939,10 +939,10 @@ function calc(){
   const prevOf = num(f.prevOficio);
   let prev = 0, prevNota = "", prevRegra = "", prevCorrigida = false;
   if(!SERVIDOR(f.credorTipo)){ prevNota = "Não incide"; prevRegra = f.credorTipo==="beneficio" ? "Benefício do RGPS pago pelo INSS: não há contribuição." : f.credorTipo==="loas" ? "Benefício assistencial (LOAS/BPC): não há contribuição previdenciária." : f.credorTipo==="restituicao" ? "Restituição de valores descontados indevidamente: não é remuneração nova, então não há contribuição previdenciária." : "Credor não é servidor público: não há contribuição."; }
-  else if(leitura.semIncidencia && (src.prevOficio==="oficio"||src.prevOficio==="autos"||src.prevOficio==="advogado") && !(prevOf>0)){ prev = 0; prevNota = "Não incide"; prevRegra = `A contadoria (CUC) classificou a verba${leitura.verba?" ("+leitura.verba.toLowerCase()+")":""} como sem incidência previdenciária e o ofício traz previdência zero. Regra da casa (14%) não aplicada porque o zero tem fundamento no cálculo, não é omissão do ofício.`; }
+  else if(leitura.semIncidencia && (src.prevOficio==="oficio"||src.prevOficio==="autos"||src.prevOficio==="advogado") && !(prevOf>0)){ prev = 0; prevNota = "Não incide"; prevRegra = `A contadoria (CUC) classificou a verba${leitura.verba?" ("+leitura.verba.toLowerCase()+")":""} como sem incidência previdenciária e o ofício traz previdência zero. Regra da casa não aplicada porque o zero tem fundamento no cálculo, não é omissão do ofício.`; }
   else if(prevOf>0){ prev = prevOf; prevNota = fed ? "PSS do ofício" : (src.prevOficio==="autos" ? "Do cálculo da contadoria" : "Retida no ofício"); prevRegra = fed ? "Valor de PSS informado pelo juízo no ofício, retido no saque (Res. CJF 458/2017, art. 30)." : "Valor de previdência informado no ofício."; }
   else {
-    const aliq = f.ente==="estado" ? 14.25 : 14;
+    const aliq = f.ente==="estado" ? 14.25 : f.ente==="goiania" ? 11 : 14;
     const baseDed = Math.max(0, bruto);
     let base = baseDed;
     const txtBase = `${brl(bruto)} (crédito total; a previdência incide sobre a remuneração inteira, inclusive a parte que vai para o advogado)`;
@@ -952,7 +952,7 @@ function calc(){
       prevRegra = `Aposentado/pensionista do Estado: 14,25% só sobre o que passa de ${brl(lim)} por mês (LC 161/2020, art. 18, §2º). Base ${txtBase}, dividida por ${n} ${n===1?"mês":"meses"}.`;
     } else if(fed){ prevRegra = `PSS zerado no ofício: regra da casa de 14% sobre ${txtBase}. A Lei 10.887/2004 (art. 16-A) prevê 11%; as alíquotas da EC 103/2019 são progressivas.`; }
     else if(f.ente==="estado"){ prevRegra = `GOIASPREV (LC 161/2020): 14,25% sobre ${txtBase}.`; }
-    else if(f.ente==="goiania"){ prevRegra = `RPPS de Goiânia: 14% sobre ${txtBase}. Competências anteriores a 05/2021 tinham 11%: o cálculo fica conservador.`; }
+    else if(f.ente==="goiania"){ prevRegra = `RPPS de Goiânia (GoiâniaPrev): 11% sobre ${txtBase} (Lei 8.095/2002, mantida pela LC 312/2018). Alíquota praticada: 11%, confirmada por contracheques e pela Prefeitura (jul/2026).`; }
     else { prevRegra = `Regra da casa: 14% sobre ${txtBase}. Conferir a lei do RPPS do município.`; }
     if(f.credorTipo==="ativo17") prevRegra += " Ingresso após 06/07/2017: a base real se limita ao teto do RGPS; o cálculo fica conservador.";
     prev = base*aliq/100; prevNota = "Regra da casa (" + pct(aliq) + ")";
