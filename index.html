@@ -146,6 +146,13 @@ section.card{background:var(--surface);border:1px solid var(--line);border-radiu
 .risks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .risks li{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;font-size:13px;align-items:start}
 @media (max-width:520px){.risks li{grid-template-columns:minmax(0,1fr)}}
+.conf-card{border-radius:6px;padding:10px 12px;font-size:12.5px;line-height:1.4;border-left:4px solid var(--muted)}
+.conf-card.c-ok{border-left-color:#2f9e44;background:rgba(47,158,68,.08)}
+.conf-card.c-diverge{border-left-color:#e03131;background:rgba(224,49,49,.08)}
+.conf-card.c-falta{border-left-color:#868e96;background:rgba(134,142,150,.08)}
+.conf-card.c-alerta{border-left-color:#f08c00;background:rgba(240,140,0,.08)}
+.conf-card b{display:block;font-size:13px;margin-bottom:2px}
+.conf-card .conf-nota{color:var(--sub);margin-top:4px}
 .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
 .btn{font:inherit;font-weight:600;font-size:13.5px;border-radius:5px;padding:11px 18px;cursor:pointer;border:1.5px solid transparent;letter-spacing:.01em}
 .btn.gold{background:var(--gold);color:#0D1B2A}
@@ -338,6 +345,11 @@ footer{color:var(--muted);font-size:11.5px;padding-block:22px 30px}
       </div>
       <h3 class="eyebrow" style="margin-top:18px">Riscos jurídicos</h3>
       <ul class="risks" id="risks"></ul>
+      <div id="confSection" hidden style="margin-top:18px">
+        <h3 class="eyebrow">Conferência automática de valores</h3>
+        <div id="confResumo" style="font-weight:600;padding:6px 0"></div>
+        <div id="confGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-top:8px"></div>
+      </div>
       <div class="actions">
         <button class="btn gold" id="btnPdf">Baixar parecer em PDF</button>
         <button class="btn ghost" id="btnSend">Enviar para o advogado</button>
@@ -1055,12 +1067,178 @@ function calc(){
   if(irCorrigido) add("MÉDIO", `O ofício veio com IR zero, mas o RRA dá ${brl(ir)}. Usado o valor recalculado.`);
   ultimo = {f, bruto, principal, principalInformado, hon, honPct, prev, prevNota, prevRegra, ir, irObj, irNota, irRegra, outras, base, des, preco, T, mod, modNota, R, nm, fed, liqTrib, liqRecalc, difLiq, divergeLiq, prevCorrigida, irCorrigido, irSemConferencia, irRefeito, pergMeses, pergCred, irDiverge, liqTribRef, semDestaque, liqComDestaque, irComprador, prevC, irC, honCli, honCliPct, honCliRespondido};
   ultimo.gate = portao(ultimo); window.__ultimo = ultimo; window.__leitura = leitura;
+  try { ultimo.conferencia = conferirValores(); } catch(e) { ultimo.conferencia = {_resumo:{texto:"Erro: "+(e&&e.message||e)}}; }
   let ver = ultimo.gate.status==="aguardar" ? "AGUARDAR" : ultimo.gate.status==="naocomprar" ? "INVIÁVEL" : ((ultimo.gate.status==="encaminhar" || R.some(r=>r[0]==="MÉDIO"||r[0]==="ALTO")) ? "VIÁVEL COM RESSALVAS" : "VIÁVEL");
   if(isOwner && $("vOverride").value && !flagsLidos.cessionario) ver = $("vOverride").value;
   if(flagsLidos.cessao && !flagsLidos.cessionario && ver==="VIÁVEL") ver = "VIÁVEL COM RESSALVAS";
   ultimo.ver = ver;
   render();
   return ultimo;
+}
+
+/* ================= Conferência automática de valores ================= */
+function conferirValores(){
+  const u = ultimo || calc();
+  const f = u.f, O = leitura, C = {};
+  const TOL = 20; // tolerância em R$ para divergências
+  const item = (chave, status, esperado, encontrado, nota) => {
+    C[chave] = {status, esperado, encontrado, nota};
+  };
+
+  // --- 1. PREVIDÊNCIA ---
+  const prevOf = num(f.prevOficio);
+  if(!SERVIDOR(f.credorTipo)){
+    // Não servidor: previdência deve ser zero
+    if(prevOf > 0) item("prev","ALERTA",0,prevOf,"Credor não é servidor, mas ofício traz previdência de "+brl(prevOf)+". Pode ser verba com incidência especial ou erro do ofício.");
+    else item("prev","OK",0,prevOf||0,"Não incide previdência (credor: "+CREDOR[f.credorTipo]+").");
+  } else {
+    // Servidor: calcular regra da casa
+    const aliq = f.ente==="estado" ? 14.25 : f.ente==="goiania" ? 11 : 14;
+    const bruto = u.bruto || 0;
+    let baseEsperada = bruto;
+    let regraDesc = "";
+    if(f.credorTipo==="aposentado" && f.ente==="estado"){
+      const n = Math.max(1, u.nm||1);
+      const lim = Math.max(3000, smEm(f.expedicao || hoje()));
+      baseEsperada = Math.max(0, bruto/n - lim)*n;
+      regraDesc = `Aposentado Estado: ${pct(aliq)} sobre excedente de ${brl(lim)}/mês (LC 161/2020, art. 18 §2º). Base: ${brl(baseEsperada)}.`;
+    } else if(f.credorTipo==="ativo17"){
+      regraDesc = `Servidor ingresso pós-07/2017: ${pct(aliq)} sobre base limitada ao teto RGPS. Cálculo conservador sobre total.`;
+    } else {
+      regraDesc = `Servidor ativo: ${pct(aliq)} sobre ${brl(bruto)}.`;
+    }
+    const prevEsperada = baseEsperada * aliq / 100;
+    if(O.semIncidencia && !(prevOf>0)){
+      item("prev","OK",0,0,"Verba classificada sem incidência pela contadoria. Previdência zero conferida.");
+    } else if(prevOf > 0){
+      if(Math.abs(prevOf - prevEsperada) <= TOL){
+        item("prev","OK",prevEsperada,prevOf,"Previdência do ofício confere com a regra da casa ("+pct(aliq)+"). "+regraDesc);
+      } else if(prevOf < prevEsperada){
+        item("prev","ALERTA",prevEsperada,prevOf,"Previdência do ofício ("+brl(prevOf)+") é MENOR que a regra da casa ("+brl(prevEsperada)+"). O tribunal pode reter mais no pagamento. "+regraDesc);
+      } else {
+        item("prev","DIVERGE",prevEsperada,prevOf,"Previdência do ofício ("+brl(prevOf)+") é MAIOR que a regra da casa ("+brl(prevEsperada)+"). Líquido pode ser maior que o estimado. "+regraDesc);
+      }
+    } else {
+      // Ofício zerado ou sem valor
+      if(prevEsperada > 0){
+        item("prev","DIVERGE",prevEsperada,0,"Ofício sem previdência, mas a regra da casa indica "+brl(prevEsperada)+" ("+pct(aliq)+"). "+regraDesc+" Mesa usou: "+brl(u.prev)+".");
+      } else {
+        item("prev","OK",0,0,"Previdência zero, compatível com a regra da casa.");
+      }
+    }
+  }
+
+  // --- 2. IMPOSTO DE RENDA ---
+  const irOf = num(f.irOficio);
+  const nm = u.nm;
+  const fed = u.fed;
+  if(f.credorTipo==="indenizacao" || f.credorTipo==="restituicao" || f.credorTipo==="loas"){
+    if(irOf > 0) item("ir","ALERTA",0,irOf,"Credor tipo "+CREDOR[f.credorTipo]+" não deveria ter IR, mas ofício traz "+brl(irOf)+".");
+    else item("ir","OK",0,0,"Isento/não incide ("+CREDOR[f.credorTipo]+").");
+  } else if(fed){
+    item("ir","OK",null,null,"Federal: IR é 3% sobre o valor pago ao cessionário, retido no pagamento. Não desconta do crédito.");
+  } else if(nm > 0){
+    // Recalcular IR pelo RRA
+    const jm = (O.jurosMora > 0 && O.jurosMora < u.bruto) ? O.jurosMora : 0;
+    const baseIR = Math.max(0, u.bruto - jm - u.prev);
+    const irCalc = irRRA(baseIR, nm);
+    const irEsperado = irCalc.ir;
+    if(irOf >= 0 && f.irOficio.trim()!==""){
+      if(Math.abs(irOf - irEsperado) <= TOL){
+        item("ir","OK",irEsperado,irOf,"IR do ofício confere com RRA de "+nm+" meses. Base mensal: "+brl(irCalc.mensal)+", faixa: "+irCalc.faixa+".");
+      } else {
+        item("ir","DIVERGE",irEsperado,irOf,"IR do ofício ("+brl(irOf)+") diverge do recálculo RRA ("+brl(irEsperado)+"). Base: "+brl(baseIR)+" ÷ "+nm+" meses = "+brl(irCalc.mensal)+"/mês, faixa "+irCalc.faixa+".");
+      }
+    } else {
+      item("ir","FALTA",irEsperado,null,"IR não informado no ofício. Recálculo RRA: "+brl(irEsperado)+" ("+nm+" meses, base mensal "+brl(irCalc.mensal)+", faixa "+irCalc.faixa+").");
+    }
+  } else if(!fed && !(nm > 0)){
+    if(irOf > 0){
+      item("ir","ALERTA",null,irOf,"IR informado no ofício ("+brl(irOf)+"), mas sem nº de meses RRA para conferir. Pedir meses do RRA.");
+    } else {
+      item("ir","FALTA",null,0,"Sem meses do RRA: não é possível conferir o IR. Solicitar o número de meses ao advogado ou ao CUC.");
+    }
+  }
+
+  // --- 3. LÍQUIDO (tribunal vs recalculado) ---
+  if(u.liqTrib != null){
+    const dif = u.liqTrib - u.liqRecalc;
+    if(Math.abs(dif) <= Math.max(50, u.liqTrib * 0.02)){
+      item("liquido","OK",u.liqRecalc,u.liqTrib,"Líquido do tribunal ("+brl(u.liqTrib)+") confere com o recalculado ("+brl(u.liqRecalc)+"). Diferença: "+brl(dif)+".");
+    } else if(dif > 0){
+      item("liquido","ALERTA",u.liqRecalc,u.liqTrib,"Líquido do tribunal ("+brl(u.liqTrib)+") é MAIOR que o recalculado ("+brl(u.liqRecalc)+"). Diferença: "+brl(dif)+". A Mesa usa o menor (conservador).");
+    } else {
+      item("liquido","DIVERGE",u.liqRecalc,u.liqTrib,"Líquido do tribunal ("+brl(u.liqTrib)+") é MENOR que o recalculado ("+brl(u.liqRecalc)+"). Diferença: "+brl(dif)+". Pode haver dedução adicional não identificada.");
+    }
+  } else {
+    item("liquido","FALTA",u.liqRecalc,null,"Líquido do tribunal não informado. Recalculado: "+brl(u.liqRecalc)+". Sem valor de referência para conferência cruzada.");
+  }
+
+  // --- 4. TETO RPV/PRECATÓRIO ---
+  if(u.T && u.T.valor && u.bruto > 0){
+    const dentro = u.bruto <= u.T.valor;
+    if(u.mod === "RPV" && dentro){
+      item("teto","OK",u.T.valor,u.bruto,"Bruto ("+brl(u.bruto)+") dentro do teto RPV ("+brl(u.T.valor)+" = "+(u.T.sm_n||"?")+" SM). Modalidade: RPV.");
+    } else if(u.mod === "Precatório" && !dentro){
+      item("teto","OK",u.T.valor,u.bruto,"Bruto ("+brl(u.bruto)+") acima do teto ("+brl(u.T.valor)+"). Modalidade: Precatório.");
+    } else {
+      item("teto","DIVERGE",u.T.valor,u.bruto,"Modalidade ("+u.mod+") pode estar inconsistente com o bruto ("+brl(u.bruto)+") e o teto ("+brl(u.T.valor)+").");
+    }
+    if(u.T.tese) item("teto_tese","ALERTA",null,null,u.T.tese);
+  } else if(u.T && u.T.aviso){
+    item("teto","FALTA",null,null,u.T.aviso);
+  }
+
+  // --- 5. HONORÁRIOS ---
+  if(u.semDestaque){
+    if(u.honCli > 0){
+      item("hon","ALERTA",null,u.honCli,"Sem destaque nos autos. Cliente informou "+pct(u.honCliPct)+" = "+brl(u.honCli)+". Pedir contrato ou declaração.");
+    } else if(!u.f.honClienteZero){
+      item("hon","FALTA",null,null,"Sem destaque de honorários nos autos e sem informação do cliente. Perguntar ao cliente.");
+    } else {
+      item("hon","OK",0,0,"Sem destaque nos autos. Cliente declarou não ter advogado a pagar.");
+    }
+  } else if(u.hon > 0){
+    item("hon","OK",u.hon,u.hon,"Honorários destacados: "+brl(u.hon)+" ("+pct(u.honPct)+").");
+  }
+
+  // --- 6. MESES DO RRA ---
+  if(!fed && SERVIDOR(f.credorTipo) && f.credorTipo!=="restituicao"){
+    if(nm > 0){
+      // Verificar se CUC tem meses e comparar
+      const cucM = O.cucMeses || null;
+      if(cucM && cucM > 0 && cucM !== nm){
+        item("rra","DIVERGE",cucM,nm,"Meses RRA usados ("+nm+") divergem do CUC ("+cucM+"). Conferir com a planilha de cálculo.");
+      } else {
+        item("rra","OK",nm,nm,"Meses RRA: "+nm+(cucM?" (confirmado pelo CUC)":"")+".");
+      }
+    } else {
+      item("rra","FALTA",null,null,"Número de meses do RRA não informado. Essencial para cálculo do IR. Solicitar ao advogado ou ao CUC.");
+    }
+  }
+
+  // --- 7. BRUTO (ofício vs CUC) ---
+  const cucTotal = O.cucTotal || null;
+  if(cucTotal && cucTotal > 0 && u.bruto > 0 && src.bruto === "oficio"){
+    if(Math.abs(cucTotal - u.bruto) <= TOL){
+      item("bruto","OK",cucTotal,u.bruto,"Bruto do ofício confere com o total do CUC ("+brl(cucTotal)+").");
+    } else {
+      item("bruto","DIVERGE",cucTotal,u.bruto,"Bruto do ofício ("+brl(u.bruto)+") diverge do total do CUC ("+brl(cucTotal)+"). Diferença: "+brl(u.bruto - cucTotal)+".");
+    }
+  }
+
+  // --- RESUMO ---
+  const itens = Object.entries(C);
+  const diverge = itens.filter(([,v])=>v.status==="DIVERGE").length;
+  const falta = itens.filter(([,v])=>v.status==="FALTA").length;
+  const alerta = itens.filter(([,v])=>v.status==="ALERTA").length;
+  const ok = itens.filter(([,v])=>v.status==="OK").length;
+  C._resumo = {total:itens.length, ok, diverge, falta, alerta,
+    texto: diverge > 0 ? `⚠️ ${diverge} DIVERGÊNCIA(S) encontrada(s)` :
+           falta > 0 ? `⚠ ${falta} item(ns) sem dados para conferência` :
+           alerta > 0 ? `${alerta} alerta(s), sem divergência` :
+           `✅ Todos os ${ok} itens conferidos OK`};
+  return C;
 }
 
 function textoCessao(){
@@ -1193,6 +1371,27 @@ function render(){
   $("btnPdf").title = $("btnPdf").disabled ? "Liberado depois da conferência do advogado" : "";
   $("btnSend").hidden = isOwner; $("btnApprove").hidden = !isOwner; $("vOvWrap").hidden = !isOwner;
   $("btnApprove").disabled = ["naocomprar","exemplo","aguardar"].includes(g.status);
+
+  // --- Conferência automática de valores ---
+  const conf = u.conferencia;
+  if(conf && conf._resumo){
+    $("confSection").hidden = false;
+    $("confResumo").textContent = conf._resumo.texto;
+    const LABEL = {prev:"Previdência",ir:"Imposto de Renda",liquido:"Líquido",teto:"Teto RPV/Precatório",teto_tese:"Tese de teto",hon:"Honorários",rra:"Meses RRA",bruto:"Bruto ofício × CUC"};
+    const ICON = {OK:"✅",DIVERGE:"❌",FALTA:"❓",ALERTA:"⚠️"};
+    const CLS = {OK:"c-ok",DIVERGE:"c-diverge",FALTA:"c-falta",ALERTA:"c-alerta"};
+    let cards = "";
+    for(const [k,v] of Object.entries(conf)){
+      if(k==="_resumo") continue;
+      const lbl = LABEL[k]||k;
+      const icon = ICON[v.status]||"";
+      const vals = v.esperado!=null && v.encontrado!=null ? ` (esperado: ${brl(v.esperado)}, encontrado: ${brl(v.encontrado)})` : "";
+      cards += `<div class="conf-card ${CLS[v.status]||""}"><b>${icon} ${esc(lbl)}: ${v.status}${vals}</b><div class="conf-nota">${esc(v.nota)}</div></div>`;
+    }
+    $("confGrid").innerHTML = cards;
+  } else {
+    $("confSection").hidden = true;
+  }
 }
 
 /* ================= Leitura do PDF ================= */
@@ -1687,6 +1886,8 @@ function analisarTexto(){
     if(C.dedIrrf>0 && C.total>0 && Math.abs(C.total - (C.prev||0) - C.liquido) < 0.05){ leitura.cucSemIR = C.dedIrrf; leitura.liquidoCuc = C.liquido - C.dedIrrf; }
   }
   if(E.cuc && !isNaN(C.dedIrrf)) leitura.irCuc = {ded: C.dedIrrf, baseMensal: C.baseMensalCuc};
+  if(E.cuc && C.total > 0) leitura.cucTotal = C.total;
+  if(E.cuc && C.meses > 0) leitura.cucMeses = C.meses;
   leitura.pago = E.pago;
   leitura.precExpedido = /expedid[oa]\s+(?:o\s+)?Precat[óo]rio|Precat[óo]rio\s+(?:foi\s+)?expedido/i.test(all);
   const norm = x => (x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z ]/g,"").trim().split(/\s+/).slice(0,2).join(" ");
@@ -1996,6 +2197,19 @@ function textoDossie(){
   if(T.suspensao){ L.push("Suspensão de RPV/precatório/pagamento: mov. "+T.suspensao.mov+" (pág. "+T.suspensao.pag+")"); L.push(T.suspensao.trecho); }
   if(!T.disputa && !T.concordancia && !T.suspensao) L.push("Nenhuma impugnação ou suspensão localizada depois da homologação.");
   sep("8. Riscos"); (u.R||[]).forEach(r=>L.push("- "+r[0]+": "+r[1]));
+  // Seção 9: Conferência automática de valores
+  try {
+    const conf = conferirValores();
+    sep("9. Conferência automática de valores");
+    L.push(conf._resumo.texto);
+    const LABEL = {prev:"Previdência",ir:"Imposto de Renda",liquido:"Líquido",teto:"Teto RPV/Precatório",teto_tese:"Tese de teto",hon:"Honorários",rra:"Meses RRA",bruto:"Bruto ofício × CUC"};
+    const ICON = {OK:"✅",DIVERGE:"❌",FALTA:"❓",ALERTA:"⚠️"};
+    for(const [k,v] of Object.entries(conf)){
+      if(k==="_resumo") continue;
+      L.push((ICON[v.status]||"")+" "+(LABEL[k]||k)+": "+v.status+(v.esperado!=null&&v.encontrado!=null?" (esperado: "+brl(v.esperado)+", encontrado: "+brl(v.encontrado)+")":""));
+      L.push("   "+v.nota);
+    }
+  } catch(e){ L.push(""); L.push("== 9. Conferência automática =="); L.push("Erro na conferência: "+(e&&e.message||e)); }
   L.push(""); L.push("Leitura automática de apoio. A decisão de compra é do advogado.");
   return L.join("\n");
 }
