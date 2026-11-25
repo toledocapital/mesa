@@ -1041,6 +1041,7 @@ function calc(){
     if(TT && TT.materia) add("PROCEDIMENTAL", `Matéria da ação: ${TT.materia}.`);
     if(TT && TT.fora && TT.fora.length) add("ALTO", `CÁLCULO FORA DO TÍTULO. A planilha tem ${TT.competencias.length} competências; ${TT.fora.length} estão fora do período do título (${TT.periodos.map(([a,b])=>fmtK(a)+" a "+fmtK(b)).join(", ")}, conforme ${TT.fontesPer.join("; ")}).${TT.valorDentro!=null?` Dentro do título: ${brl(TT.valorDentro)}. Fora: ${brl(TT.valorFora)}.`:""} O ente pode pedir a correção como erro material, mesmo com a conta homologada.`);
     if(TT && TT.disputa) add("ALTO", `O ente contestou os cálculos depois da homologação (mov. ${TT.disputa.mov}, pág. ${TT.disputa.pag}).`);
+    if(TT && TT.concordancia && !TT.disputa) add("PROCEDIMENTAL", `O ente CONCORDOU com os cálculos (mov. ${TT.concordancia.mov}, pág. ${TT.concordancia.pag}). Ressalva padrão do art. 1º-E da Lei 9.494/97 não configura contestação.`);
     if(TT && TT.titulo && !(TT.periodos && TT.periodos.length) && TT.competencias && TT.competencias.length) add("MÉDIO", `A Mesa não identificou no título (mov. ${TT.titulo.mov}) o período condenado para comparar com as ${TT.competencias.length} competências da planilha (${fmtK(TT.competencias[0])} a ${fmtK(TT.competencias[TT.competencias.length-1])}). Conferir o título antes da compra (use o dossiê).`);
     if(TT && TT.fora && !TT.fora.length && TT.periodos.length){ const nT = TT.periodos.reduce((a,[x,y])=>a+((Math.floor(y/100)-Math.floor(x/100))*12+(y%100)-(x%100)+1),0);
       add("PROCEDIMENTAL", `Competências da planilha dentro do período do título (${TT.periodos.map(([a,b])=>fmtK(a)+" a "+fmtK(b)).join(", ")}).${nT>TT.competencias.length?` A planilha tem ${TT.competencias.length} meses e o título ${nT}: a conta pode ter ficado a menor (sem risco para o comprador).`:""}`); }
@@ -1115,6 +1116,7 @@ function portao(u){
   if(flagsLidos.obito) M.push("O credor faleceu: a compra depende da assinatura de todos os herdeiros e da partilha do crédito. Decisão do Dr. Paulo.");
   if(TT && TT.fora && TT.fora.length) M.push(`O cálculo inclui ${TT.fora.length} competência(s) FORA do período do título (${fmtK(TT.fora[0])} a ${fmtK(TT.fora[TT.fora.length-1])}). Período do título: ${TT.periodos.map(([a,b])=>fmtK(a)+" a "+fmtK(b)).join(", ")} (${TT.fontesPer.join("; ")}).${TT.valorDentro!=null?` Pela planilha da contadoria, as competências dentro do título somam ${brl(TT.valorDentro)} e as de fora ${brl(TT.valorFora)}.`:""} Risco de o ente pedir correção por erro material: não comprar sem o Dr. Paulo.`);
   if(TT && TT.disputa) M.push(`Há petição do ente contestando os cálculos depois da homologação (mov. ${TT.disputa.mov}, pág. ${TT.disputa.pag}).`);
+  if(TT && TT.concordancia && !TT.disputa) M.push(`O ente concordou expressamente com os cálculos (mov. ${TT.concordancia.mov}). Ressalva genérica do art. 1º-E da Lei 9.494/97 não é contestação.`);
   if(TT && TT.reconferencia) M.push(`O juízo mandou a contadoria conferir a conta com o título depois da homologação (mov. ${TT.reconferencia.mov}).`);
   if(leitura.cucDiverge) M.push("O total do cálculo da contadoria é diferente do valor do ofício.");
   if(leitura.cucSemIR) M.push(`A contadoria apurou IR de ${brl(leitura.cucSemIR)} (RRA), mas o "valor líquido" dela não desconta esse IR. A Mesa descontou.`);
@@ -1551,10 +1553,13 @@ function conferirTitulo(pgs){
   R.homologInercia = inercia || null;
   if(R.ultimaHomologacao){
     const depois = movs.filter(n => n > R.ultimaHomologacao);
-    const pet = depois.find(n => /Peti[çc][ãa]o|Impugna|Manifesta/i.test(B[n].titulo) && /chamamento\s+do\s+feito\s+[àa]\s+ordem|excesso\s+de\s+execu[çc][ãa]o|(?<!salvo\s)erro\s+material|revis[ãa]o\s+dos\s+c[áa]lculos|impugna[çc][ãa]o\s+(?:ao|aos)\s+c[áa]lculo/i.test(B[n].txt) && /Estado\s+de\s+Goi[áa]s|Procurador|PGE|Munic[íi]pio|INSS|Procuradoria/i.test(B[n].txt));
+    const concordanciaRe = /concorda(?:m|mos|ndo)?\s+com\s+(?:os?\s+)?c[áa]lculos?|anu[íi]mos?\s+(?:com\s+)?(?:os?\s+)?c[áa]lculos?|n[ãa]o\s+(?:tem|h[áa])\s+obje[çc][ãa]o\s+(?:aos?\s+)?c[áa]lculos?|homolog(?:ar?|ue)\s+os?\s+c[áa]lculos?/i;
+    const pet = depois.find(n => /Peti[çc][ãa]o|Impugna|Manifesta/i.test(B[n].titulo) && /chamamento\s+do\s+feito\s+[àa]\s+ordem|excesso\s+de\s+execu[çc][ãa]o|(?<!salvo\s)erro\s+material|revis[ãa]o\s+dos\s+c[áa]lculos|impugna[çc][ãa]o\s+(?:ao|aos)\s+c[áa]lculo/i.test(B[n].txt) && /Estado\s+de\s+Goi[áa]s|Procurador|PGE|Munic[íi]pio|INSS|Procuradoria/i.test(B[n].txt) && !concordanciaRe.test(B[n].txt));
+    const concordou = depois.find(n => /Peti[çc][ãa]o|Manifesta/i.test(B[n].titulo) && concordanciaRe.test(B[n].txt) && /Estado\s+de\s+Goi[áa]s|Procurador|PGE|Munic[íi]pio|INSS|Procuradoria/i.test(B[n].txt));
     const susp = depois.find(n => /Decis[ãa]o|Despacho/i.test(B[n].titulo) && /suspen(?:der|s[ãa]o)[^.]{0,160}?(?:RPV|precat[óo]rio|pagamento|requisit|libera[çc][ãa]o)/i.test(B[n].txt));
     const conf = depois.find(n => /Decis[ãa]o|Despacho/i.test(B[n].titulo) && /(?:remet|encaminh)\w*[^.]{0,80}?(?:Contadoria|Central\s+[ÚU]nica\s+de\s+Contadores)[^.]{0,200}?(?:confront|confer[êe]ncia|t[íi]tulo\s+executivo)/i.test(B[n].txt));
     R.disputa = pet ? {mov:pet, pag:B[pet].pags[0]} : null;
+    R.concordancia = concordou ? {mov:concordou, pag:B[concordou].pags[0]} : null;
     R.suspensao = susp ? {mov:susp, pag:B[susp].pags[0], trecho:((B[susp].txt.match(/[^.]{0,400}(?:DEFIRO|determino|para)\s[^.]{0,80}suspen(?:der|s[ãa]o)[^.]{0,220}\./gi)||B[susp].txt.match(/[^.]{0,120}suspen(?:der|s[ãa]o)[^.]{0,220}\./gi)||[""]).slice(-1)[0]).replace(/\s+/g," ").trim()} : null;
     R.reconferencia = conf ? {mov:conf, pag:B[conf].pags[0]} : null;
   }
@@ -1985,10 +1990,11 @@ function textoDossie(){
   sep("7. Homologação e disputa posterior");
   L.push("Última homologação: "+(T.ultimaHomologacao ? "mov. "+T.ultimaHomologacao : "não localizada"));
   if(T.homologInercia) L.push("Homologação por inércia do ente: mov. "+T.homologInercia);
-  if(T.disputa) L.push("Petição do ente contra os cálculos: mov. "+T.disputa.mov+" (pág. "+T.disputa.pag+")");
+  if(T.concordancia) L.push("✅ O ente CONCORDOU com os cálculos: mov. "+T.concordancia.mov+" (pág. "+T.concordancia.pag+")");
+  if(T.disputa) L.push("⚠️ Petição do ente contra os cálculos: mov. "+T.disputa.mov+" (pág. "+T.disputa.pag+")");
   if(T.reconferencia) L.push("Remessa à contadoria para conferir com o título: mov. "+T.reconferencia.mov);
   if(T.suspensao){ L.push("Suspensão de RPV/precatório/pagamento: mov. "+T.suspensao.mov+" (pág. "+T.suspensao.pag+")"); L.push(T.suspensao.trecho); }
-  if(!T.disputa && !T.suspensao) L.push("Nenhuma impugnação ou suspensão localizada depois da homologação.");
+  if(!T.disputa && !T.concordancia && !T.suspensao) L.push("Nenhuma impugnação ou suspensão localizada depois da homologação.");
   sep("8. Riscos"); (u.R||[]).forEach(r=>L.push("- "+r[0]+": "+r[1]));
   L.push(""); L.push("Leitura automática de apoio. A decisão de compra é do advogado.");
   return L.join("\n");
