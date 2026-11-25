@@ -357,6 +357,7 @@ footer{color:var(--muted);font-size:11.5px;padding-block:22px 30px}
         <button class="btn ghost" id="btnDossieCopiar" title="Copia o dossiê para colar no chat">Copiar dossiê</button>
         <div id="dossieBox" hidden style="width:100%;margin-top:10px"><small>Se o download não funcionar: o dossiê está abaixo. Clique em "Copiar dossiê" e cole na conversa, ou selecione o texto.</small><textarea id="dossieTxt" readonly style="width:100%;min-height:220px;font:12px/1.4 monospace;margin-top:6px"></textarea></div>
         <button class="btn gold" id="btnApprove" hidden>Aprovar análise</button>
+        <button class="btn gold" id="btnProposta" title="Gera a proposta de compra pronta para imprimir/salvar em PDF">Gerar proposta de compra</button>
       </div>
       <div class="toast" id="toast"></div>
     </section>
@@ -2263,6 +2264,265 @@ $("btnApprove").addEventListener("click", async ()=>{
   }catch(e){ t.textContent = "Não consegui aprovar (" + (e && (e.code||e.message) || e) + ")."; }
   finally{ $("btnApprove").disabled = false; }
 });
+
+/* ================= Proposta de compra automatizada ================= */
+$("btnProposta").addEventListener("click", ()=>{
+  if(!ultimo || !ultimo.base){ $("toast").textContent = "Calcule uma análise antes de gerar a proposta."; return; }
+  gerarProposta(ultimo);
+});
+
+function gerarProposta(u){
+  const f = u.f || {};
+  const hoje = new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
+  const cedente = f.credor || "—";
+  const processo = f.processo || "—";
+  const credito = u.mod || "RPV";
+  const bruto = u.bruto || 0;
+  const honV = u.hon || 0;
+  const honP = u.honPct || 0;
+  const ir = u.ir || 0;
+  const outrasD = (u.prev||0) + (u.outras||0);
+  const liquido = u.base || 0;
+  const preco = u.preco || 0;
+  const des = u.des || 0;
+
+  const fBrl = v => (v==null||isNaN(v)) ? "—" : v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  const fPct = v => (v==null||isNaN(v)) ? "—" : (v*100).toFixed(1).replace(".",",") + "%";
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proposta — ${esc(cedente)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Montserrat:wght@400;500;600&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0D1B2A;--gold:#CDAE4E;--gold-ink:#97761F;--bg:#F7F3E9;--surface:#FFFFFF;
+  --fg:#0D1B2A;--muted:#566781;--line:#E3DBC7;
+  --display:"Cormorant Garamond",Georgia,serif;
+  --body:"Montserrat","Segoe UI",system-ui,sans-serif;
+}
+@page{size:A4;margin:0}
+html,body{font-family:var(--body);font-size:13px;color:var(--fg);background:#fff}
+.page{width:210mm;min-height:297mm;margin:0 auto;position:relative;padding:0;overflow:hidden;background:#fff}
+@media print{.page{width:100%;min-height:100vh}.no-print{display:none!important}}
+
+/* Header */
+.hdr{background:var(--navy);padding:22px 40px;display:flex;align-items:center;justify-content:space-between}
+.brand-row{display:flex;align-items:center;gap:14px}
+.brand-row svg{width:48px;height:34px}
+.brand-row .sep{width:1.5px;height:36px;background:rgba(247,243,233,.35)}
+.brand-row .nm{color:#F7F3E9;font-family:var(--body);font-weight:600;font-size:15px;letter-spacing:3.5px;line-height:1.1}
+.brand-row .nm small{display:block;font-weight:400;font-size:9.5px;letter-spacing:5px}
+.hdr .data{color:#F7F3E9;font-size:11px;letter-spacing:.5px;text-align:right;opacity:.85}
+.hdr .data-label{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;opacity:.7}
+
+/* Body */
+.body{padding:28px 40px 20px}
+.titulo{font-family:var(--display);font-size:28px;font-weight:500;line-height:1.15;margin-bottom:4px}
+.titulo em{font-style:italic;color:var(--gold-ink)}
+.subtit{font-size:10px;color:var(--muted);margin-bottom:20px}
+
+/* Info row */
+.info-row{display:grid;grid-template-columns:1fr 1fr auto;border:1px solid var(--line);border-radius:6px;margin-bottom:22px}
+.info-cell{padding:10px 14px}
+.info-cell+.info-cell{border-left:1px solid var(--line)}
+.info-label{font-size:8.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.info-val{font-size:12.5px;font-weight:600}
+
+/* Sections */
+.sec-title{font-family:var(--display);font-size:20px;font-weight:600;margin-bottom:12px;padding-left:10px;border-left:3px solid var(--gold)}
+
+/* Composição + Proposta side by side */
+.comp-wrap{display:grid;grid-template-columns:1fr 260px;gap:20px;margin-bottom:22px}
+.comp-table{width:100%}
+.comp-table tr td{padding:7px 0;border-bottom:1px solid #f0ece2}
+.comp-table tr:last-child td{border-bottom:2px solid var(--navy);font-weight:600}
+.comp-table .lbl{font-size:12px}
+.comp-table .pct{font-size:11px;color:var(--muted);min-width:46px;text-align:center}
+.comp-table .val{text-align:right;font-size:12px;white-space:nowrap}
+.comp-table .val.neg{color:#A3261E}
+
+/* Valor da proposta box */
+.prop-box{border:2px solid var(--gold);border-radius:8px;padding:18px 16px;text-align:center;align-self:start}
+.prop-box .prop-label{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-ink);font-weight:600;margin-bottom:6px}
+.prop-box .prop-valor{font-family:var(--display);font-size:30px;font-weight:600;color:var(--navy);margin-bottom:4px}
+.prop-box .prop-sub{font-size:10px;color:var(--muted);margin-bottom:12px}
+.prop-box .check-list{text-align:left;display:flex;flex-direction:column;gap:5px}
+.prop-box .check-item{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:500}
+.prop-box .check-icon{width:18px;height:18px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.prop-box .check-icon svg{width:10px;height:10px}
+
+/* Compare */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:6px}
+.compare .card{border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.compare .card.gold{border-color:var(--gold);border-width:2px}
+.compare .card-label{font-size:8.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:4px}
+.compare .card.gold .card-label{color:var(--gold-ink)}
+.compare .q{font-size:11px;margin-bottom:2px}
+.compare .q b{font-weight:600}
+.compare .a{font-size:10px;color:var(--muted)}
+.compare-nota{font-size:9px;color:var(--muted);margin-bottom:18px;margin-top:4px}
+
+/* Etapas */
+.etapas-nota{font-size:9.5px;color:var(--muted);text-align:right;margin-bottom:8px}
+.etapas{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.etapa{border:1px solid var(--line);border-radius:6px;padding:10px 10px 12px;position:relative}
+.etapa .num{width:22px;height:22px;border-radius:4px;background:var(--navy);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;margin-bottom:5px}
+.etapa .et-title{font-size:11.5px;font-weight:600;margin-bottom:3px}
+.etapa .et-desc{font-size:9.5px;color:var(--muted);line-height:1.35}
+.etapa-arrow{position:absolute;right:-12px;top:50%;transform:translateY(-50%);color:var(--gold);font-size:14px}
+
+/* Importante */
+.importante{background:#FFF8E6;border-radius:6px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;margin-bottom:20px}
+.imp-icon{width:28px;height:28px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.imp-icon svg{width:14px;height:14px}
+.imp-label{font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold-ink);font-weight:600;margin-bottom:2px}
+.imp-text{font-size:10.5px;font-weight:600;line-height:1.35}
+
+/* Footer */
+.footer{position:absolute;bottom:0;left:0;right:0;background:var(--navy);padding:14px 40px;display:flex;justify-content:space-between;color:#F7F3E9;font-size:10px}
+.footer b{font-weight:600;letter-spacing:.5px}
+.footer .right{text-align:right}
+.footer .right div{margin-bottom:1px}
+.footer small{font-size:9px;opacity:.6}
+
+/* Editables */
+[contenteditable]{outline:none;border-bottom:1.5px dashed var(--gold);cursor:text;padding:0 2px;min-width:60px;display:inline-block}
+[contenteditable]:focus{background:#FFF8E6;border-bottom-color:var(--gold-ink)}
+@media print{[contenteditable]{border-bottom:none;background:transparent}}
+
+.toolbar{background:var(--navy);color:#F7F3E9;padding:10px 20px;display:flex;align-items:center;gap:14px;font-family:var(--body);font-size:13px;position:sticky;top:0;z-index:99}
+.toolbar button{background:var(--gold);color:var(--navy);border:none;padding:7px 18px;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px}
+.toolbar button:hover{opacity:.85}
+.toolbar .info{opacity:.7;font-size:11px}
+</style>
+</head>
+<body>
+<div class="toolbar no-print">
+  <button onclick="window.print()">Imprimir / Salvar PDF</button>
+  <span class="info">Os campos com <span style="border-bottom:1.5px dashed var(--gold);padding:0 3px">sublinhado dourado</span> podem ser editados antes de imprimir.</span>
+</div>
+<div class="page">
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="brand-row">
+      <svg viewBox="0 0 100 70" aria-hidden="true"><path d="M6 14 H38 V62 C42 46 56 30 76 12" fill="none" stroke="#F7F3E9" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="78" cy="11" r="6.5" fill="#CDAE4E"/></svg>
+      <div class="sep"></div>
+      <div class="nm">TOLEDO<small>C A P I T A L</small></div>
+    </div>
+    <div class="data">
+      <div class="data-label">Data da proposta</div>
+      <div contenteditable="true">${esc(hoje)}</div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+    <div class="titulo">Proposta de compra de <em>crédito judicial</em></div>
+    <div class="subtit">Documento confidencial · uso exclusivo do cedente</div>
+
+    <!-- Info row -->
+    <div class="info-row">
+      <div class="info-cell">
+        <div class="info-label">Cedente</div>
+        <div class="info-val" contenteditable="true">${esc(cedente)}</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">Nº do processo</div>
+        <div class="info-val">${esc(processo)}</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">Crédito</div>
+        <div class="info-val">${esc(credito)}</div>
+      </div>
+    </div>
+
+    <!-- Composição + Proposta -->
+    <div class="sec-title">Composição do crédito</div>
+    <div class="comp-wrap">
+      <table class="comp-table">
+        <tr><td class="lbl">Valor homologado (bruto)</td><td class="pct"></td><td class="val" contenteditable="true">${fBrl(bruto)}</td></tr>
+        <tr><td class="lbl">Honorários advocatícios</td><td class="pct" contenteditable="true">${honP?fPct(honP):""}</td><td class="val neg" contenteditable="true">– ${fBrl(honV)}</td></tr>
+        <tr><td class="lbl">Dedução de imposto</td><td class="pct"></td><td class="val neg" contenteditable="true">– ${fBrl(ir)}</td></tr>
+        <tr><td class="lbl">Outras deduções</td><td class="pct"></td><td class="val neg" contenteditable="true">– ${fBrl(outrasD)}</td></tr>
+        <tr><td class="lbl">Valor líquido<br><small style="font-size:9px;color:var(--muted)">o que você receberia ao fim do processo</small></td><td class="pct"></td><td class="val" contenteditable="true">${fBrl(liquido)}</td></tr>
+      </table>
+      <div class="prop-box">
+        <div class="prop-label">Valor da proposta</div>
+        <div class="prop-valor" contenteditable="true">${fBrl(preco)}</div>
+        <div class="prop-sub">Pago à vista no ato da assinatura da escritura.</div>
+        <div class="check-list">
+          <div class="check-item"><div class="check-icon"><svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5L5 9L9.5 3.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Você não paga nada em nenhuma etapa</div>
+          <div class="check-item"><div class="check-icon"><svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5L5 9L9.5 3.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Escritura pública lavrada em cartório</div>
+          <div class="check-item"><div class="check-icon"><svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5L5 9L9.5 3.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Pagamento em conta no seu nome</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compare -->
+    <div class="sec-title">Compare e decida com tranquilidade</div>
+    <div class="compare">
+      <div class="card">
+        <div class="card-label">Se esperar o pagamento</div>
+        <div class="q">Quando? <b>Sem data definida</b></div>
+        <div class="a">Depende da fila e do orçamento do ente público.</div>
+      </div>
+      <div class="card gold">
+        <div class="card-label">Com a Toledo Capital</div>
+        <div class="q">Quando? <b>Na assinatura da escritura</b></div>
+        <div class="a">Valor fechado, pago à vista, em conta no seu nome.</div>
+      </div>
+    </div>
+    <div class="compare-nota">A decisão é sua. Se quiser, converse com o seu advogado antes de aceitar.</div>
+
+    <!-- Etapas -->
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+      <div class="sec-title" style="margin-bottom:0">Etapas da operação</div>
+      <div class="etapas-nota">Cada etapa começa somente após a aprovação da anterior.</div>
+    </div>
+    <div class="etapas">
+      <div class="etapa"><div class="num">1</div><div class="et-title">Aceite</div><div class="et-desc">Você aceita a proposta e envia os documentos solicitados.</div><span class="etapa-arrow">▸</span></div>
+      <div class="etapa"><div class="num">2</div><div class="et-title">Jurídico</div><div class="et-desc">Nosso jurídico analisa os documentos e as certidões fiscais.</div><span class="etapa-arrow">▸</span></div>
+      <div class="etapa"><div class="num">3</div><div class="et-title">Cartório</div><div class="et-desc">O cartório prepara a escritura pública de cessão.</div><span class="etapa-arrow">▸</span></div>
+      <div class="etapa"><div class="num">4</div><div class="et-title">Assinatura e Pix</div><div class="et-desc">Assinatura online (e-Notariado) ou presencial, com Pix no ato.</div></div>
+    </div>
+
+    <!-- Importante -->
+    <div class="importante">
+      <div class="imp-icon"><svg viewBox="0 0 14 14" fill="none"><path d="M7 3.5V7.5M7 10V10.01" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div>
+        <div class="imp-label">Importante</div>
+        <div class="imp-text">A escritura só tem validade perante o juiz quando acompanhada do comprovante de pagamento em nome do cedente.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div>
+      <b>AGÊNCIA TOLEDO INVEST LTDA.</b><br>
+      CNPJ 69.626.152/0001-09<br>
+      Goiânia/GO
+    </div>
+    <div class="right">
+      <div>WhatsApp (62) 98274-0971</div>
+      <div>toledocapitalinvest.com.br</div>
+      <small>Proposta válida por tempo limitado.</small>
+    </div>
+  </div>
+</div>
+</body></html>`;
+
+  const w = window.open("","_blank");
+  if(!w){ $("toast").textContent = "Desbloqueie pop-ups para gerar a proposta."; return; }
+  w.document.write(html);
+  w.document.close();
+}
+
 function renderHist(){
   const tb = $("hist");
   if(!rowsHist.length){ tb.innerHTML = `<tr><td colspan="7" class="empty">Nenhuma análise na fila. Leia um processo e toque em Enviar para o advogado.</td></tr>`; return; }
