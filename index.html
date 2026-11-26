@@ -296,6 +296,15 @@ footer{color:var(--muted);font-size:11.5px;padding-block:22px 30px}
             <option value="restituicao">Restituição de desconto/tributo (sem IR e sem previdência)</option>
             <option value="loas">LOAS / BPC (benefício assistencial)</option>
           </select></div>
+        <div class="f" id="wrapVerbaIsenta" style="display:none"><label for="verbaIsenta">Natureza da verba</label>
+          <select id="verbaIsenta">
+            <option value="">Remuneratória (incide IR e previdência)</option>
+            <option value="ferias">Férias indenizadas / não gozadas + 1/3</option>
+            <option value="licpremio">Licença-prêmio convertida em pecúnia</option>
+            <option value="danomoral">Indenização por dano moral</option>
+            <option value="outra_isenta">Outra verba indenizatória (isenta)</option>
+          </select>
+          <div class="hint">Verbas indenizatórias são isentas de IR e previdência mesmo para servidor.</div></div>
         <div class="f"><label for="transito">Trânsito em julgado</label><input id="transito" type="date"></div>
         <div class="f"><label for="expedicao">Expedição da requisição</label><input id="expedicao" type="date"><div class="hint">Define o salário mínimo do teto. Vazio: hoje.</div></div>
         <div class="f"><label for="fase">Fase</label>
@@ -915,7 +924,7 @@ const isoDe = br => { const m = br.match(/(\d{2})\/(\d{2})\/(\d{4})/); return m 
 const esc = s => String(s??"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 /* ================= Ficha e origem dos dados ================= */
-const FIELDS = ["honCliente","processo","credor","juizo","ente","credorTipo","transito","expedicao","fase","natureza","bruto","principal","honModo","honVal","rra","irOficio","prevOficio","outras","desagio","responsavel","obs"];
+const FIELDS = ["honCliente","processo","credor","juizo","ente","credorTipo","verbaIsenta","transito","expedicao","fase","natureza","bruto","principal","honModo","honVal","rra","irOficio","prevOficio","outras","desagio","responsavel","obs"];
 const CHECKS = ["superpref","simples","honClienteZero"];
 const TRACKED = ["ente","credorTipo","transito","expedicao","fase","bruto","principal","honModo","honVal","rra","irOficio","prevOficio","outras","superpref"];
 const NOMES = {ente:"ente devedor",credorTipo:"tipo de credor",transito:"trânsito",expedicao:"expedição",fase:"fase",bruto:"valor do ofício",principal:"principal",honModo:"honorários",honVal:"honorários",rra:"meses do RRA",irOficio:"IR",prevOficio:"previdência",outras:"outras deduções",superpref:"superpreferência"};
@@ -932,6 +941,12 @@ function getFicha(){ const o = {}; FIELDS.forEach(k=>o[k]=$(k).value); CHECKS.fo
 let ultimo = null;
 function calc(){
   const f = getFicha();
+  // Mostrar/ocultar campo de verba isenta conforme tipo de credor
+  const isServ = SERVIDOR(f.credorTipo);
+  $("wrapVerbaIsenta").style.display = isServ ? "" : "none";
+  if(!isServ) $("verbaIsenta").value = "";
+  const verbaIsenta = isServ ? f.verbaIsenta : "";
+
   const bruto = num(f.bruto) || 0;
   let principal = num(f.principal); const principalInformado = principal>0;
   if(!principalInformado) principal = bruto;
@@ -952,6 +967,7 @@ function calc(){
   const prevOf = num(f.prevOficio);
   let prev = 0, prevNota = "", prevRegra = "", prevCorrigida = false;
   if(!SERVIDOR(f.credorTipo)){ prevNota = "Não incide"; prevRegra = f.credorTipo==="beneficio" ? "Benefício do RGPS pago pelo INSS: não há contribuição." : f.credorTipo==="loas" ? "Benefício assistencial (LOAS/BPC): não há contribuição previdenciária." : f.credorTipo==="restituicao" ? "Restituição de valores descontados indevidamente: não é remuneração nova, então não há contribuição previdenciária." : "Credor não é servidor público: não há contribuição."; }
+  else if(verbaIsenta){ prevNota = "Não incide (verba isenta)"; prevRegra = verbaIsenta==="ferias" ? "Férias indenizadas (não gozadas) + 1/3 constitucional: verba indenizatória isenta de contribuição previdenciária (LC 161/2020, art. 19; CF art. 7º, XVII)." : verbaIsenta==="licpremio" ? "Licença-prêmio convertida em pecúnia: verba indenizatória isenta de contribuição previdenciária (LC 161/2020, art. 19)." : verbaIsenta==="danomoral" ? "Indenização por dano moral: não é remuneração, não incide contribuição previdenciária." : "Verba indenizatória isenta de contribuição previdenciária (LC 161/2020, art. 19)."; }
   else if(leitura.semIncidencia && (src.prevOficio==="oficio"||src.prevOficio==="autos"||src.prevOficio==="advogado") && !(prevOf>0)){ prev = 0; prevNota = "Não incide"; prevRegra = `A contadoria (CUC) classificou a verba${leitura.verba?" ("+leitura.verba.toLowerCase()+")":""} como sem incidência previdenciária e o ofício traz previdência zero. Regra da casa não aplicada porque o zero tem fundamento no cálculo, não é omissão do ofício.`; }
   else if(prevOf>0){ prev = prevOf; prevNota = fed ? "PSS do ofício" : (src.prevOficio==="autos" ? "Do cálculo da contadoria" : "Retida no ofício"); prevRegra = fed ? "Valor de PSS informado pelo juízo no ofício, retido no saque (Res. CJF 458/2017, art. 30)." : "Valor de previdência informado no ofício."; }
   else {
@@ -979,6 +995,7 @@ function calc(){
   else if(f.credorTipo==="restituicao"){ irNota = "Não incide"; irRegra = `Restituição de valores descontados indevidamente (${leitura.naturezaIsenta||"devolução de desconto/tributo"}): não é rendimento novo, então não há IR nem previdência. O próprio ofício não traz retenção.`; }
   else if(f.credorTipo==="loas" && !fed){ irNota = "Isento"; irRegra = "Benefício assistencial (LOAS/BPC) não é rendimento tributável."; }
   else if(!fed && leitura.semIncidencia){ irNota = "Não incide"; irRegra = `A contadoria (CUC) classificou a verba${leitura.verba?" ("+leitura.verba.toLowerCase()+")":""} como sem incidência de deduções legais${irOf===0?" e o ofício confirma IR zero":""}. IR não aplicado.`; }
+  else if(verbaIsenta){ irNota = "Isento (verba indenizatória)"; irRegra = verbaIsenta==="ferias" ? "Férias indenizadas (não gozadas) + 1/3 constitucional: verba indenizatória isenta de IR (Súmula 386/STJ; Lei 7.713/88, art. 6º, V; RIR/2018, art. 35, II, 'e')." : verbaIsenta==="licpremio" ? "Licença-prêmio convertida em pecúnia: verba indenizatória isenta de IR (STJ, REsp repetitivo 1.459.779/MA)." : verbaIsenta==="danomoral" ? "Indenização por dano moral: verba indenizatória isenta de IR (STJ, Súmula 498; Lei 7.713/88, art. 6º, V)." : "Verba indenizatória isenta de IR (Lei 7.713/88, art. 6º, V)."; }
   else if(fed && leitura.justicaEstadual){
     if(leitura.beneficioIsento){ irNota = "Isento"; irRegra = `Decisão da Justiça Estadual (competência acidentária/delegada): não se aplica a retenção de 3% da Lei 10.833/2003, art. 27, que é só para a Justiça Federal. O benefício (${leitura.beneficioIsento}) é isento de IR (IN RFB 1.500/2014, art. 6º, XI).`; }
     else { irNota = "Conferir"; irSemConferencia = true; irRegra = "Decisão da Justiça Estadual contra o INSS: não se aplica a retenção de 3% (só Justiça Federal). Se o benefício for tributável (aposentadoria, pensão), o IR é pelo RRA, retido no pagamento: conferir o número de meses com o Dr. Paulo."; }
@@ -1037,7 +1054,7 @@ function calc(){
   if(f.ente==="estado") add("PROCEDIMENTAL","Estado: a cessão só produz efeitos após comunicação ao ente e ao tribunal (Lei 17.034/2010, art. 2º-E, §1º).");
   add("PROCEDIMENTAL","Antes de assinar: certidões do cedente, estado civil e anuência do cônjuge, nova pesquisa de penhora e de cessão anterior. Formalizar por escritura pública.");
 
-  const irAplica = !fed && !["indenizacao","loas","beneficio","restituicao"].includes(f.credorTipo) && !(src.irOficio==="oficio" && irOf>0);
+  const irAplica = !fed && !verbaIsenta && !["indenizacao","loas","beneficio","restituicao"].includes(f.credorTipo) && !(src.irOficio==="oficio" && irOf>0);
   const pergMeses = irAplica && !(nm>0);
   const pergCred = false;
   if(f.credorTipo==="loas") add("MÉDIO", "Crédito de LOAS/BPC (benefício assistencial, Lei 8.742/93): credor idoso ou com deficiência, portanto com superpreferência que se perde na cessão. Há o mesmo debate de cessibilidade dos créditos do INSS (art. 114 da Lei 8.213/91). IR e previdência não incidem.");
@@ -1063,7 +1080,7 @@ function calc(){
   if(leitura.rpvSucumbencial){ const si = leitura.sucInfo||{}; add("PROCEDIMENTAL", `Há RPV de honorários sucumbenciais${si.mov?" (mov. "+si.mov+")":""}${si.valor?", de "+brl(si.valor):""}${si.quem?", em favor de "+si.quem.trim():""}. É crédito do advogado, não do autor: foi ignorada. O cálculo usa só o requisitório do autor${leitura.movOficio?" (mov. "+leitura.movOficio+")":""}.`); }
   if(prevCorrigida) add("MÉDIO", `O ofício veio com previdência zerada e a verba não foi declarada sem incidência pela contadoria. Aplicada a regra da casa: ${brl(prev)}. O líquido do tribunal pode estar acima do que será pago.`);
   if(f.ente==="goiania" && SERVIDOR(f.credorTipo) && !(num(f.outras)>0)) add("MÉDIO", "Servidor municipal de Goiânia: há desconto de IMAS (plano de saúde municipal — Lei 8.095/2002) que não está incluído. Verificar no contracheque/cálculo da Prefeitura o valor do IMAS-SAÚDE e lançar no campo 'Plano de saúde'. Sem esse valor, o líquido está superestimado.");
-  if(leitura.indBloqueada) add("PROCEDIMENTAL", `A Mesa encontrou menção a "${leitura.indBloqueada}" no processo, mas há evidência de que o credor é servidor público (contracheques, matrícula, progressão funcional). A classificação como indenização isenta foi BLOQUEADA. Conferir se a verba é realmente remuneratória.`);
+  if(leitura.indBloqueada && !verbaIsenta) add("PROCEDIMENTAL", `A Mesa encontrou menção a "${leitura.indBloqueada}" no processo, mas há evidência de que o credor é servidor público. Se a verba for indenizatória (férias não gozadas, licença-prêmio, dano moral), selecione a natureza no campo "Natureza da verba" para zerar IR e previdência com fundamento legal.`);
   if(leitura.particularPorOficio && sServ>0) add("MÉDIO", `O ofício veio com previdência zero e IR preenchido, e a Mesa classificou como "particular" (não servidor). Porém há ${sServ} menção(ões) a termos de servidor no processo (contracheque, matrícula, cargo). CONFERIR: se for servidor, a previdência está zerada indevidamente.`);
   if(irCorrigido) add("MÉDIO", `O ofício veio com IR zero, mas o RRA dá ${brl(ir)}. Usado o valor recalculado.`);
   ultimo = {f, bruto, principal, principalInformado, hon, honPct, prev, prevNota, prevRegra, ir, irObj, irNota, irRegra, outras, base, des, preco, T, mod, modNota, R, nm, fed, liqTrib, liqRecalc, difLiq, divergeLiq, prevCorrigida, irCorrigido, irSemConferencia, irRefeito, pergMeses, pergCred, irDiverge, liqTribRef, semDestaque, liqComDestaque, irComprador, prevC, irC, honCli, honCliPct, honCliRespondido};
@@ -1946,6 +1963,20 @@ function analisarTexto(){
   if(!ct){ ct = "ativo"; ctSrc = "conservador"; leitura.credConservador = true; }
   ficha.credorTipo = ct; src.credorTipo = ctSrc;
 
+  // Auto-sugerir verba isenta para servidor quando há evidência no PDF
+  if(SERVIDOR(ct)){
+    const vb = (leitura.verba||"").toUpperCase();
+    const assLower = (O.assunto||"").toLowerCase();
+    const semRetencoes = O.bruto>0 && O.prev===0 && O.ir===0;
+    if(/F[ÉE]RIAS/.test(vb) || /f[ée]rias\s+(indenizada|n[ãa]o\s+gozada|vencida|proporciona)/i.test(assLower)){
+      ficha.verbaIsenta = "ferias"; src.verbaIsenta = "autos";
+    } else if(/LICEN[CÇ]A.PRÊMIO|LICEN[CÇ]A.PR[EÊ]MIO/i.test(vb) || /licen[cç]a.pr[eê]mio/i.test(assLower)){
+      ficha.verbaIsenta = "licpremio"; src.verbaIsenta = "autos";
+    } else if(/danos?\s*mora(?:l|is)/i.test(assLower) && semRetencoes){
+      ficha.verbaIsenta = "danomoral"; src.verbaIsenta = "autos";
+    }
+  }
+
   // Sinais
   const prio = (O.prioridade || E.prioridadeCapa || "");
   flagsLidos = {
@@ -2074,7 +2105,9 @@ function gerarPDF(){
     par(textoCessao());
   }
   secao("I — IDENTIFICAÇÃO DO CRÉDITO");
-  kv([["Processo", f.processo||"[não informado]"],["Juízo", f.juizo||"[não informado]"],["Cedente", f.credor||"[não informado]"],["Ente devedor", ENTES[f.ente]],["Credor / verba", CREDOR[f.credorTipo] + (leitura.assunto ? " — " + leitura.assunto : (leitura.verba ? " — " + leitura.verba.toLowerCase() : ""))],
+  const VERBA_ISENTA_LABEL = {ferias:"Férias indenizadas (não gozadas) + 1/3", licpremio:"Licença-prêmio convertida em pecúnia", danomoral:"Indenização por dano moral", outra_isenta:"Verba indenizatória isenta"};
+  const credorVerba = CREDOR[f.credorTipo] + (verbaIsenta ? " — " + VERBA_ISENTA_LABEL[verbaIsenta] : (leitura.assunto ? " — " + leitura.assunto : (leitura.verba ? " — " + leitura.verba.toLowerCase() : "")));
+  kv([["Processo", f.processo||"[não informado]"],["Juízo", f.juizo||"[não informado]"],["Cedente", f.credor||"[não informado]"],["Ente devedor", ENTES[f.ente]],["Credor / verba", credorVerba],
       ["Trânsito em julgado", f.transito ? dataBR(f.transito) : "[não localizado]"],["Expedição", f.expedicao ? dataBR(f.expedicao) : "[não localizada]"],
       ["Fase", {calculo:"Cálculo não homologado", homologado:"Cálculo homologado", expedida:"Requisição expedida"}[f.fase]],
       ["Natureza", {alimentar:"Alimentar",comum:"Comum",tributaria:"Tributária"}[f.natureza] + (f.superpref ? " — credor com superpreferência (perde-se na cessão)" : "")],
@@ -2625,7 +2658,7 @@ function onEdit(e){
   calc();
 }
 $("form").addEventListener("input", onEdit);
-$("form").addEventListener("change", e=>{ if(e.target.type==="checkbox") onEdit(e); });
+$("form").addEventListener("change", e=>{ if(e.target.type==="checkbox" || e.target.tagName==="SELECT") onEdit(e); });
 $("form").addEventListener("submit", e=>e.preventDefault());
 $("honCliente").addEventListener("input", calc);
 function mesesEntre(a,b){ const m1 = a.match(/(\d{1,2})\s*\/\s*(\d{4})/), m2 = b.match(/(\d{1,2})\s*\/\s*(\d{4})/); if(!m1||!m2) return null; const n = (+m2[2]-+m1[2])*12 + (+m2[1]-+m1[1]) + 1; return n>0 && n<600 ? n : null; }
