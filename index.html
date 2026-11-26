@@ -2278,8 +2278,11 @@ function gerarProposta(u){
   const processo = f.processo || "—";
   const credito = u.mod || "RPV";
   const bruto = u.bruto || 0;
-  const honV = u.hon || 0;
-  const honP = u.honPct || 0;
+  /* Honorários: usar honCli (informados pelo cliente) quando disponíveis, senão hon (contratuais do ofício) */
+  const honV = (u.honCli > 0) ? u.honCli : (u.hon || 0);
+  const honP = (u.honCli > 0) ? (u.honCliPct || 0) : (u.honPct || 0);
+  /* IR: somente o que é efetivamente deduzido do crédito do vendedor (u.ir).
+     u.irComprador é imposto do comprador e NÃO reduz o líquido do cedente. */
   const ir = u.ir || 0;
   const prev = u.prev || 0;
   const outrasD = prev + (u.outras||0);
