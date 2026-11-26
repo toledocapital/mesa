@@ -2286,10 +2286,6 @@ function gerarProposta(u){
   const liquido = u.base || 0;
   const preco = u.preco || 0;
   const des = u.des || 0;
-  /* Se deduções individuais são zero mas bruto > líquido, o tribunal já deduziu */
-  const dedIndividuais = honV + ir + outrasD;
-  const totalDed = Math.max(0, bruto - liquido);
-  const dedConsolidada = (dedIndividuais < 0.01 && totalDed > 0.01);
 
   const fBrl = v => (v==null||isNaN(v)) ? "—" : v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
   const fPct = v => (v==null||isNaN(v)) ? "—" : v.toLocaleString("pt-BR",{maximumFractionDigits:2}) + "%";
@@ -2316,14 +2312,14 @@ html,body{font-family:var(--body);font-size:13px;color:var(--fg);background:#fff
 @media print{html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{width:100%;min-height:100vh;margin:0}.no-print{display:none!important}}
 
 /* Header */
-.hdr{background:var(--navy);padding:22px 40px;display:flex;align-items:center;justify-content:space-between}
+.hdr{background:var(--navy);padding:36px 40px;display:flex;align-items:center;justify-content:space-between}
 .brand-row{display:flex;align-items:center;gap:14px}
 .brand-row img{width:160px;height:auto}
 .hdr .data{color:#F7F3E9;font-size:11px;letter-spacing:.5px;text-align:right;opacity:.85}
 .hdr .data-label{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;opacity:.7}
 
 /* Body */
-.body{padding:28px 40px 80px;background:#fff;flex:1}
+.body{padding:28px 40px 100px;background:#fff;flex:1}
 .titulo{font-family:var(--display);font-size:28px;font-weight:500;line-height:1.15;margin-bottom:4px}
 .titulo em{font-style:italic;color:var(--gold-ink)}
 .subtit{font-size:10px;color:var(--muted);margin-bottom:20px}
@@ -2388,7 +2384,7 @@ html,body{font-family:var(--body);font-size:13px;color:var(--fg);background:#fff
 .imp-text{font-size:10.5px;font-weight:600;line-height:1.35}
 
 /* Footer */
-.footer{position:absolute;bottom:0;left:0;right:0;background:var(--navy);padding:14px 40px;display:flex;justify-content:space-between;color:#F7F3E9;font-size:10px}
+.footer{position:absolute;bottom:0;left:0;right:0;background:var(--navy);padding:28px 40px;display:flex;justify-content:space-between;color:#F7F3E9;font-size:10px}
 .footer b{font-weight:600;letter-spacing:.5px}
 .footer .right{text-align:right}
 .footer .right div{margin-bottom:1px}
@@ -2448,13 +2444,9 @@ html,body{font-family:var(--body);font-size:13px;color:var(--fg);background:#fff
     <div class="comp-wrap">
       <table class="comp-table">
         <tr><td class="lbl">Valor homologado (bruto)</td><td class="pct"></td><td class="val" contenteditable="true">${fBrl(bruto)}</td></tr>
-        ${dedConsolidada ? `
-        <tr><td class="lbl">Deduções legais<br><small style="font-size:9px;color:var(--muted)">IR, previdência e honorários retidos no pagamento</small></td><td class="pct"></td><td class="val neg" contenteditable="true">– ${fBrl(totalDed)}</td></tr>
-        ` : `
         <tr><td class="lbl">Honorários advocatícios</td><td class="pct" contenteditable="true">${honP?fPct(honP):""}</td><td class="val neg" contenteditable="true">– ${fBrl(honV)}</td></tr>
         <tr><td class="lbl">Dedução de imposto</td><td class="pct"></td><td class="val neg" contenteditable="true">– ${fBrl(ir)}</td></tr>
         <tr><td class="lbl">Outras deduções</td><td class="pct"></td><td class="val neg" contenteditable="true">– ${fBrl(outrasD)}</td></tr>
-        `}
         <tr><td class="lbl">Valor líquido<br><small style="font-size:9px;color:var(--muted)">o que você receberia ao fim do processo</small></td><td class="pct"></td><td class="val" contenteditable="true">${fBrl(liquido)}</td></tr>
       </table>
       <div class="prop-box">
@@ -2527,6 +2519,56 @@ html,body{font-family:var(--body);font-size:13px;color:var(--fg);background:#fff
   if(!w){ $("toast").textContent = "Desbloqueie pop-ups para gerar a proposta."; return; }
   w.document.write(html);
   w.document.close();
+
+  /* --- WhatsApp message template --- */
+  const nome = cedente.split(" ")[0]; // primeiro nome
+  const msgs = [
+    `Olá, ${nome}! Tudo bem?\nAqui é da Toledo Capital. Conforme nosso contato, segue a proposta de antecipação do seu crédito judicial.\nQualquer dúvida, estamos à disposição!`,
+    `${nome}, boa tarde!\nSegue a proposta de antecipação do seu precatório/RPV. Analise com calma e, se tiver dúvidas, é só chamar.\nAbraço, equipe Toledo Capital.`,
+    `Olá, ${nome}!\nSegue em anexo a proposta referente ao processo ${processo}. Ficamos no aguardo do seu retorno.\nAtenciosamente, Toledo Capital.`
+  ];
+  // remove existing overlay if any
+  const oldOv = document.getElementById("whatsappOverlay");
+  if(oldOv) oldOv.remove();
+  const ov = document.createElement("div");
+  ov.id = "whatsappOverlay";
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif";
+  ov.innerHTML = `
+    <div style="background:#fff;border-radius:12px;max-width:520px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+      <div style="background:#25D366;color:#fff;padding:14px 20px;border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:700;font-size:15px">📱 Mensagem para o cliente</span>
+        <button id="whatsappClose" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 4px">✕</button>
+      </div>
+      <div style="padding:16px 20px">
+        <p style="font-size:13px;color:#666;margin:0 0 12px">Escolha uma mensagem e copie para enviar no WhatsApp:</p>
+        ${msgs.map((m,i) => `
+          <div style="background:#f0f0f0;border-radius:8px;padding:12px;margin-bottom:10px;position:relative">
+            <pre style="white-space:pre-wrap;font-family:system-ui,sans-serif;font-size:13px;margin:0;line-height:1.5;color:#333">${m.replace(/</g,"&lt;")}</pre>
+            <button class="waCopy" data-idx="${i}" style="margin-top:8px;background:#25D366;color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">📋 Copiar</button>
+          </div>
+        `).join("")}
+        <p style="font-size:11px;color:#999;margin:12px 0 0;text-align:center">Os campos são editáveis na proposta. Envie o PDF pelo WhatsApp após imprimir.</p>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector("#whatsappClose").addEventListener("click", () => ov.remove());
+  ov.addEventListener("click", e => { if(e.target === ov) ov.remove(); });
+  ov.querySelectorAll(".waCopy").forEach(btn => btn.addEventListener("click", function(){
+    const idx = +this.dataset.idx;
+    navigator.clipboard.writeText(msgs[idx]).then(() => {
+      this.textContent = "✅ Copiado!";
+      setTimeout(() => { this.textContent = "📋 Copiar"; }, 2000);
+    }).catch(() => {
+      // fallback: select text
+      const pre = this.previousElementSibling;
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      this.textContent = "Selecione e copie (Ctrl+C)";
+    });
+  }));
 }
 
 function renderHist(){
