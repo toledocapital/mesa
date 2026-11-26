@@ -2307,8 +2307,8 @@ function gerarProposta(u){
 }
 @page{size:A4;margin:0}
 html,body{font-family:var(--body);font-size:13px;color:var(--fg);background:#fff}
-.page{width:210mm;min-height:297mm;margin:0 auto;position:relative;padding:0;overflow:hidden;background:#fff}
-@media print{.page{width:100%;min-height:100vh}.no-print{display:none!important}}
+.page{width:210mm;min-height:297mm;margin:0 auto;position:relative;padding:0;overflow:hidden;background:var(--navy);display:flex;flex-direction:column}
+@media print{html,body{margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{width:100%;min-height:100vh;margin:0}.no-print{display:none!important}}
 
 /* Header */
 .hdr{background:var(--navy);padding:22px 40px;display:flex;align-items:center;justify-content:space-between}
@@ -2318,7 +2318,7 @@ html,body{font-family:var(--body);font-size:13px;color:var(--fg);background:#fff
 .hdr .data-label{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;opacity:.7}
 
 /* Body */
-.body{padding:28px 40px 20px}
+.body{padding:28px 40px 80px;background:#fff;flex:1}
 .titulo{font-family:var(--display);font-size:28px;font-weight:500;line-height:1.15;margin-bottom:4px}
 .titulo em{font-style:italic;color:var(--gold-ink)}
 .subtit{font-size:10px;color:var(--muted);margin-bottom:20px}
@@ -2342,6 +2342,8 @@ html,body{font-family:var(--body);font-size:13px;color:var(--fg);background:#fff
 .comp-table .pct{font-size:11px;color:var(--muted);min-width:46px;text-align:center}
 .comp-table .val{text-align:right;font-size:12px;white-space:nowrap}
 .comp-table .val.neg{color:#A3261E}
+.comp-table td{display:table-cell!important;vertical-align:middle}
+.comp-table .pct:not(:empty){background:#EDE9DF;border-radius:4px;padding:1px 6px}
 
 /* Valor da proposta box */
 .prop-box{border:2px solid var(--gold);border-radius:8px;padding:18px 16px;text-align:center;align-self:start}
