@@ -387,7 +387,7 @@ footer{color:var(--muted);font-size:11.5px;padding-block:22px 30px}
       <ol class="passos">
         <li><b>Valor do ofício</b>, sem atualização.</li>
         <li><b>− Honorários do advogado:</b> % × valor do ofício. Saem inteiros, sem desconto nenhum (destacados no processo ou, se não houver destaque, informados pelo cliente). Eles não reduzem a base da previdência nem do IR.</li>
-        <li><b>− Previdência sobre o valor do ofício inteiro.</b> A parte do advogado também é remuneração do servidor, só que repassada; quem arca com toda a previdência é a parte do credor. Pela lei de cada ente e pela alíquota de cada competência: Estado 11% até 03/2013, 13,25% até 03/2017 e 14,25% depois (LC 77/2010, LC 100/2012, LC 126/2016, LC 161/2020) · Goiânia 11% e 14% desde 05/2021 (LC 336/2021) · Aparecida 11% e 14% desde 04/2021 (LC 180/2020) · Anápolis 14% desde 04/2021 (LC 457/2020) · aposentado/pensionista só sobre o que passa do limite da lei (Estado: R$ 3.000 desde 2022; municípios: teto do INSS) · servidor federal: o PSS do ofício. Ente sem lei no projeto (Rio Verde, Valparaíso e outros): o parecer trava até você digitar a previdência do ofício. Não servidor, INSS e LOAS: não tem. Se o ofício ou a contadoria trouxer a previdência, vale a deles (a contadoria já tira o abono de permanência).</li>
+        <li><b>− Previdência sobre o valor do ofício inteiro.</b> A parte do advogado também é remuneração do servidor, só que repassada; quem arca com toda a previdência é a parte do credor. Pela lei de cada ente e pela alíquota de cada competência: Estado 11% até 03/2013, 13,25% até 03/2017 e 14,25% depois (LC 77/2010, LC 100/2012, LC 126/2016, LC 161/2020) · Goiânia 11% e 14% desde 05/2021 (LC 336/2021) · Aparecida 11% e 14% desde 04/2021 (LC 180/2020) · Anápolis 14% desde 04/2021 (LC 457/2020) · aposentado/pensionista só sobre o que passa do limite da lei (Estado: R$ 3.000 desde 2022; municípios: teto do INSS) · servidor federal: o PSS do ofício. Rio Verde 11% e 14% desde 10/2020 (Lei 5.304/2007, Lei 7.089/2020). Ente sem lei no projeto (Valparaíso e outros): o parecer trava até você digitar a previdência do ofício. Não servidor, INSS e LOAS: não tem. Se o ofício ou a contadoria trouxer a previdência, vale a deles (a contadoria já tira o abono de permanência).</li>
         <li><b>− Imposto de renda pelo RRA</b>, igual à contadoria do TJGO: base = ofício − juros de mora − previdência (os juros de mora não sofrem IR, Tema 808/STF; a SELIC sofre). Base ÷ número de meses → tabela mensal → × número de meses. Os honorários <b>não</b> saem da base do IR. Indenização e LOAS: isentos. INSS e União com cessão: 3% sobre o valor pago ao cessionário.</li>
         <li><b>= Líquido.</b> Se o tribunal também calculou o líquido, vale o <b>menor</b> dos dois.</li>
       </ol>
@@ -402,7 +402,8 @@ footer{color:var(--muted);font-size:11.5px;padding-block:22px 30px}
             <tr><td>Anápolis, trânsito desde 27/03/2026</td><td>12 SM (Lei 4.542/2026)</td></tr>
             <tr><td>Goianésia, trânsito após 01/09/2023</td><td>R$ 8.000,00</td></tr>
             <tr><td>Aparecida, trânsito desde 08/02/2006</td><td>15 SM (Lei 2.560/2006)</td></tr>
-            <tr><td>Rio Verde, Valparaíso, Vila Propício</td><td>sem lei cadastrada</td></tr>
+            <tr><td>Rio Verde, trânsito desde 01/01/2026</td><td>R$ 10.000,00 (Lei 5.907/2011, red. Lei 7.761/2025)</td></tr>
+            <tr><td>Valparaíso, Vila Propício</td><td>sem lei cadastrada</td></tr>
             <tr><td>Outro município</td><td>30 SM (ADCT 87)</td></tr>
             <tr><td>INSS, União e autarquias</td><td>60 SM</td></tr>
           </tbody></table></div>
@@ -1128,20 +1129,25 @@ function detectarVerbaLegal(verba, assunto, servidor, oficio){
    Cada faixa: [de AAAAMM, até AAAAMM, alíquota %, fonte]. Retroativo judicial: alíquota de cada competência
    (LC 161/2020, art. 19, §3º, I; LC 312/2018 de Goiânia, art. 80). Sem competências identificáveis: alíquota
    vigente no pagamento (LC 161/2020, art. 19, §3º, II; LC 312/2018, art. 80, parágrafo único). */
-const TETO_RGPS = {2010:3467.40,2011:3691.74,2012:3916.20,2013:4159.00,2014:4390.24,2015:4663.75,2016:5189.82,2017:5531.31,2018:5645.80,2019:5839.45,2020:6101.06,2021:6433.57,2022:7087.22,2023:7507.49,2024:7786.02,2025:8157.41,2026:8475.55};
-function tetoRGPS(k){ const a = Math.floor(k/100); const ks = Object.keys(TETO_RGPS).map(Number); return TETO_RGPS[a] || TETO_RGPS[a < ks[0] ? ks[0] : ks[ks.length-1]]; }
+const TETO_RGPS = [[199605,957.56],[199706,1031.87],[199806,1081.50],[199812,1200.00],[199906,1255.32],[200006,1328.25],[200106,1430.00],[200206,1561.56],[200306,1869.34],[200312,2400.00],[200405,2508.72],[200505,2668.15],[200604,2801.56],[200608,2801.82],[200704,2894.28],[200803,3038.99],[200902,3218.90],[201001,3416.54],[201006,3467.40],[201101,3689.66],[201107,3691.74],[201201,3916.20],[201301,4159.00],[201401,4390.24],[201501,4663.75],[201601,5189.82],[201701,5531.31],[201801,5645.80],[201901,5839.45],[202001,6101.06],[202101,6433.57],[202201,7087.22],[202301,7507.49],[202401,7786.02],[202501,8157.41],[202601,8475.55]];
+function tetoRGPS(k){ let v = TETO_RGPS[0][1]; for(const [de,val] of TETO_RGPS){ if(k >= de) v = val; } return v; }
 function smK(k){ const a = Math.floor(k/100), m = k%100; return smEm(`${a}-${String(m).padStart(2,"0")}-01`); }
 const PREV_LEI = {
   estado: { nome:"GOIASPREV",
-    ativo: [[0,201001,null,"anterior à LC 77/2010 (lei não está no projeto)"],
+    ativo: [[0,199608,null,"anterior à Lei 12.872/1996 (lei não está no projeto)"],
+            [199609,200007,6,"Lei 12.872/1996, art. 1º (D.O. 17/05/1996; vigência após 90 dias, art. 4º)"],
+            [200008,201001,11,"LC 29/2000, art. 31 (D.O. 18/04/2000; exigível após 90 dias, §2º); Lei 13.903/2001, art. 95"],
             [201002,201303,11,"LC 77/2010, art. 23, I (redação original)"],
             [201304,201703,13.25,"LC 100/2012, arts. 1º e 2º (efeitos a partir de 01/04/2013)"],
             [201704,999912,14.25,"LC 126/2016, arts. 2º e 6º, I (90 dias após 29/12/2016); LC 161/2020, art. 18, I"]],
-    piso: k => k<=202012 ? {v:tetoRGPS(k), t:"teto do RGPS (LC 77/2010, art. 23, II)"} : k<=202112 ? {v:smK(k), t:"1 salário mínimo (LC 161/2020, art. 18, §2º, redação original)"} : {v:Math.max(3000, smK(k)), t:"maior entre R$ 3.000 e 1 SM (LC 161/2020, art. 18, §2º, red. LC 168/2021)"},
+    apos: [[0,200404,0,"não havia contribuição de aposentado/pensionista antes da LC 46/2004"],
+           [200405,201001,11,"LC 46/2004, art. 1º, parágrafo único, I (D.O. 27/01/2004; cobrança após 90 dias, art. 5º)"]],
+    avisoApos: k => k>=200405 && k<=201001 ? "A LC 46/2004 previa limite de 50% do teto do RGPS para quem já recebia o benefício em 2004; a Mesa usa o teto inteiro (o STF derrubou o limite de 50% da EC 41/2003 nas ADIs 3.105 e 3.128). Conferir." : "",
+    piso: k => k<=202012 ? {v:tetoRGPS(k), t:"teto do RGPS (LC 46/2004; LC 77/2010, art. 23, II)"} : k<=202112 ? {v:smK(k), t:"1 salário mínimo (LC 161/2020, art. 18, §2º, redação original)"} : {v:Math.max(3000, smK(k)), t:"maior entre R$ 3.000 e 1 SM (LC 161/2020, art. 18, §2º, red. LC 168/2021)"},
     teto17: "LC 77/2010, art. 23, I, b (LC 137/2017); LC 161/2020, art. 18, §1º, II" },
   goiania: { nome:"GoiâniaPrev",
-    ativo: [[0,201809,null,"anterior à LC 312/2018 (lei não está no projeto)"],
-            [201810,202104,11,"LC 312/2018, art. 78, redação original (11%: texto original não está no projeto; conferir)"],
+    ativo: [[0,201809,null,"anterior à LC 312/2018 (Lei 8.095/2002 não está no projeto)"],
+            [201810,202104,11,"LC 312/2018, art. 78, redação original (DOM nº 6906, de 28/09/2018)"],
             [202105,999912,14,"LC 312/2018, art. 78, red. LC 336/2021 (DOM 29/01/2021; cobrança após 90 dias, CF art. 195, §6º)"]],
     piso: k => ({v:tetoRGPS(k), t:"teto do RGPS (LC 312/2018, art. 81)"}), aviso:"Aposentado com doença incapacitante: incide só acima do dobro do teto do RGPS (LC 312/2018, art. 81, parágrafo único)." },
   aparecida: { nome:"AparecidaPrev",
@@ -1150,15 +1156,25 @@ const PREV_LEI = {
             [202104,999912,14,"LC 010/2005, art. 80, I, red. LC 180/2020 (DOM 28/12/2020; cobrança após 90 dias, CF art. 195, §6º); LC 243/2025, art. 4º"]],
     piso: k => ({v:tetoRGPS(k), t:"teto do RGPS (LC 010/2005, art. 80, II; LC 243/2025, art. 5º)"}) },
   anapolis: { nome:"ISSA/PREVIAN",
-    ativo: [[0,202103,null,"anterior à LC 457/2020 (lei não está no projeto)"],
+    ativo: [[0,200312,null,"anterior à LC 77/2003 (lei não está no projeto)"],
+            [200401,200503,8.5,"LC 77/2003, art. 82, §2º (redação original)"],
+            [200504,202103,11,"LC 77/2003, art. 82, §2º, red. LC 98/2004 (igual à da União, 11%; cobrança após 90 dias, CF art. 195, §6º) e LC 153/2007 (11%)"],
             [202104,999912,14,"LC 457/2020, art. 5º, §2º (29/12/2020; cobrança após 90 dias, CF art. 195, §6º)"]],
-    piso: k => ({v:smK(k), t:"1 salário mínimo, se houver déficit atuarial (LC 457/2020, art. 5º, §4º); sem déficit, só acima do teto do RGPS (§3º). Usado o critério mais conservador"}) }
+    apos: [[0,200503,0,"não havia contribuição de aposentado/pensionista antes da LC 98/2004"]],
+    piso: k => k<=202103 ? {v:tetoRGPS(k), t:"teto do RGPS (LC 98/2004, art. 1º, parágrafo único, I)"} : {v:smK(k), t:"1 salário mínimo, se houver déficit atuarial (LC 457/2020, art. 5º, §4º); sem déficit, só acima do teto do RGPS (§3º). Usado o critério mais conservador"} },
+  rioverde: { nome:"IPARV",
+    ativo: [[0,200705,null,"anterior à Lei 5.304/2007 (Lei 4.691/2003 não está no projeto)"],
+            [200706,202009,11,"Lei 5.304/2007, art. 8º"],
+            [202010,999912,14,"Lei 5.304/2007, art. 8º, red. Lei 7.089/2020 (vigência após 90 dias, a partir de 01/10/2020, art. 2º)"]],
+    piso: k => ({v:tetoRGPS(k), t:"teto do RGPS (Lei 5.304/2007, art. 8º, parágrafo único)"}),
+    aviso: "A Lei 7.089/2020 fala só dos ativos; a Mesa aplica 14% também ao aposentado (conservador). A base de contribuição está no art. 19 da Lei 4.691/2003, que não está no projeto: conferir verbas excluídas." }
 };
+function f_ehRV(e){ return e==="rioverde"; }
 function regraPrev(ente, tipo, bruto, nm, comps, dataPag){
   const L = PREV_LEI[ente];
   const r = {prev:0, aliqTxt:"", fontes:[], semLei:false, motivoSemLei:"", avisos:[], base:0, meses:0};
   if(!L){ r.semLei = true; r.motivoSemLei = `Não há lei de previdência deste ente no projeto (${ENTES[ente]||ente}).`; return r; }
-  let ks = (comps||[]).filter(k=>k>200000).sort((a,b)=>a-b);
+  let ks = (comps||[]).filter(k=>k>=190001 && k<=210012 && k%100>=1 && k%100<=12).sort((a,b)=>a-b);
   const porComp = ks.length>0;
   if(!porComp){ const d = (dataPag||hoje()); ks = [ +d.slice(0,4)*100 + +d.slice(5,7) ]; r.avisos.push("Sem competências identificadas: usada a alíquota vigente no pagamento (LC 161/2020, art. 19, §3º, II; LC 312/2018 de Goiânia, art. 80, parágrafo único)."); }
   const n = porComp ? ks.length : Math.max(1, nm||1);
@@ -1166,10 +1182,10 @@ function regraPrev(ente, tipo, bruto, nm, comps, dataPag){
   const usadas = new Map(); let soma = 0, base = 0;
   const peso = porComp ? 1 : n;
   for(const k of ks){
-    const fx = L.ativo.find(([a,b])=>k>=a && k<=b);
+    const fx = (tipo==="aposentado" && L.apos && L.apos.find(([a,b])=>k>=a && k<=b)) || L.ativo.find(([a,b])=>k>=a && k<=b);
     if(!fx || fx[2]==null){ r.semLei = true; r.motivoSemLei = `Há competência (${fmtK(k)}) sem lei no projeto: ${fx?fx[3]:"faixa não cadastrada"}.`; continue; }
     let bm = media, desc = "";
-    if(tipo==="aposentado"){ const p = L.piso(k); bm = Math.max(0, media - p.v); desc = p.t; }
+    if(tipo==="aposentado" && fx[2]>0){ const p = L.piso(k); bm = Math.max(0, media - p.v); desc = p.t; if(L.avisoApos){ const av = L.avisoApos(k); if(av && !r.avisos.includes(av)) r.avisos.push(av); } }
     else if(tipo==="ativo17" && L.teto17 && k>=201707){ bm = Math.min(media, tetoRGPS(k)); desc = "base limitada ao teto do RGPS ("+L.teto17+")"; }
     soma += bm*fx[2]/100*peso; base += bm*peso;
     const chave = fx[2]+"|"+fx[3]+(desc?"|"+desc:""); usadas.set(chave, (usadas.get(chave)||0) + (porComp?1:n));
@@ -1178,7 +1194,7 @@ function regraPrev(ente, tipo, bruto, nm, comps, dataPag){
   r.fontes = [...usadas.entries()].map(([c,q])=>{ const [a,f,d] = c.split("|"); return `${pct(+a)} em ${q} ${q===1?"mês":"meses"} (${f}${d?"; "+d:""})`; });
   const al = [...new Set([...usadas.keys()].map(c=>+c.split("|")[0]))];
   r.aliqTxt = al.map(a=>pct(a)).join(" / ");
-  if(L.aviso && tipo==="aposentado") r.avisos.push(L.aviso);
+  if(L.aviso && (tipo==="aposentado" || f_ehRV(ente))) r.avisos.push(L.aviso);
   if(tipo==="ativo17" && ente!=="estado") r.avisos.push("Ingresso após o regime complementar: a lei municipal pode limitar a base ao teto do RGPS. Conferir.");
   if(tipo==="aposentado" || tipo==="ativo17") r.avisos.push("Cálculo por média mensal (crédito ÷ meses), com correção e juros incluídos: aproximação.");
   return r;
@@ -1202,6 +1218,14 @@ function teto(ente, t, exp){
   } else if(ente==="aparecida"){
     if(!t){ r.aviso="Sem data de trânsito: teto de Aparecida indefinido."; return r; }
     if(t >= "2006-02-08"){ r.sm_n=15; r.norma="Lei municipal 2.560/2006, art. 1º"; r.aviso="Texto da Lei 2.560/2006 tirado de compilação não oficial (leis.org): conferir se houve alteração posterior."; } else { r.sm_n=30; r.norma="ADCT, art. 87 (trânsito antes da Lei 2.560/2006)"; }
+  } else if(ente==="rioverde"){
+    if(!t){ r.aviso="Sem data de trânsito: teto de Rio Verde indefinido."; return r; }
+    const RV = [["2011-03-22",5000,"Lei 5.907/2011, art. 2º"],["2016-08-18",5500,"Lei 5.907/2011, art. 2º, red. Lei 6.633/2016"],["2017-07-03",5600,"red. Lei 6.729/2017"],["2018-05-30",5700,"red. Lei 6.847/2018"],["2019-03-29",5900,"red. Lei 6.929/2019"],["2020-01-01",6200,"red. Lei 7.020/2019 (vigência em 01/01/2020)"],["2020-12-21",6400,"red. Lei 7.116/2020"],["2022-01-01",8000,"red. Lei 7.235/2022 (efeitos desde 01/01/2022)"],["2024-01-01",8300,"red. Lei 7.458/2023 (vigência em 01/01/2024)"],["2026-01-01",10000,"red. Lei 7.761/2025 (vigência em 01/01/2026)"]];
+    let fx = null; for(const x of RV){ if(t >= x[0]) fx = x; }
+    if(!fx){ r.sm_n=30; r.norma="ADCT, art. 87 (trânsito antes da Lei 5.907/2011)"; }
+    else { const k = +t.slice(0,4)*100 + +t.slice(5,7); const piso = tetoRGPS(k);
+      r.valor = Math.max(fx[1], piso); r.norma = (fx[2].startsWith("red.") ? "Lei 5.907/2011, art. 2º, " : "") + fx[2] + ": R$ " + fx[1].toLocaleString("pt-BR",{minimumFractionDigits:2});
+      r.aviso = "Datas de vigência pela data da lei, quando a lei manda vigorar na publicação: conferir a publicação." + (piso > fx[1] ? ` O valor da lei fica abaixo do maior benefício do RGPS (R$ ${piso.toLocaleString("pt-BR",{minimumFractionDigits:2})}), que é o piso do art. 100, §4º, da CF: a Mesa usou o piso.` : ""); }
   } else if(FEDERAL(ente)){ r.sm_n=60; r.norma="Lei 10.259/2001, art. 17, §1º"; }
   else if(ente==="outro"){ r.sm_n=30; r.norma="ADCT, art. 87"; r.aviso="Conferir se o município tem lei própria de teto."; }
   else { r.aviso="Teto deste município não cadastrado."; }
