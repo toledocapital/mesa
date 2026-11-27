@@ -1145,6 +1145,17 @@ function teto(ente, t, exp){
   if(r.sm_n && r.valor===null) r.valor = r.sm_n*sm;
   return r;
 }
+// IR do autor (antes da cessão) em benefício do INSS pago pelo TRF: Res. CJF 458/2017, art. 28 (RPV com RRA)
+function irCredorINSS(bruto, nm){
+  const ben = leitura.beneficio;
+  if(ben==="auxílio-acidente") return `Para o autor, o auxílio-acidente é tratado como isento. `;
+  const nome = ben ? ben : "o benefício (espécie não identificada nos autos)";
+  const n = nm>0 ? nm : 0;
+  let t = `IR do autor, antes da cessão: ${nome} é rendimento tributável${ben?"":" se for auxílio-doença, aposentadoria ou pensão"}; não há isenção por doença grave em auxílio-doença (a isenção da Lei 7.713/88, art. 6º, XIV, é só para aposentadoria, reforma e pensão). `;
+  if(n>0){ const r = irRRA(bruto, n); t += `Pelo RRA (${n} meses), a base mensal é ${brl(r.mensal)}: ${r.ir>0 ? "IR de "+brl(r.ir)+"." : "abaixo da faixa isenta ("+brl(IR_FAIXAS[0][0])+"), então o IR do autor é zero."} Res. CJF 458/2017, art. 28: parcelas de anos anteriores pela tabela × meses; parcelas do ano da requisição com 3% se o saque for no mesmo ano; saque no ano seguinte, tudo pela tabela × meses. `; }
+  else t += `Faltam os meses do RRA para calcular o IR do autor. `;
+  return t + `Depois da cessão vale a retenção de 3% em nome do comprador (abaixo). `;
+}
 function irRRA(base, nm){
   const n = Math.max(1, nm||1); const m = base>0 ? base/n : 0;
   for(const [lim,a,d] of IR_FAIXAS){ if(m <= lim) return {ir: Math.max(0, m*a-d)*n, mensal:m, faixa: a ? (a*100).toLocaleString("pt-BR")+"%" : "isento", base}; }
@@ -1262,12 +1273,12 @@ function calc(){
     else irRegra = verbaIsenta==="ferias" ? "Férias indenizadas (não gozadas) + 1/3 constitucional: verba indenizatória isenta de IR (Súmula 386/STJ; Lei 7.713/88, art. 6º, V; RIR/2018, art. 35, II, 'e')." : verbaIsenta==="licpremio" ? "Licença-prêmio convertida em pecúnia: verba indenizatória isenta de IR (STJ, REsp repetitivo 1.459.779/MA)." : verbaIsenta==="danomoral" ? "Indenização por dano moral: verba indenizatória isenta de IR (STJ, Súmula 498; Lei 7.713/88, art. 6º, V)." : "Verba indenizatória isenta de IR (Lei 7.713/88, art. 6º, V).";
   }
   else if(fed && leitura.justicaEstadual){
-    if(leitura.beneficioIsento){ irNota = "Isento"; irRegra = `Decisão da Justiça Estadual (competência acidentária/delegada): não se aplica a retenção de 3% da Lei 10.833/2003, art. 27, que é só para a Justiça Federal. O benefício (${leitura.beneficioIsento}) é isento de IR (IN RFB 1.500/2014, art. 6º, XI).`; }
+    if(leitura.beneficioIsento){ irNota = "Isento"; irRegra = `RPV de competência originária da Justiça Estadual (ação acidentária, paga pelo Projudi): não se aplica a retenção de 3% da Lei 10.833/2003, art. 27, que é só para pagamentos da Justiça Federal. O benefício (${leitura.beneficioIsento}) é tratado como isento de IR (IN RFB 1.500/2014, art. 6º, XI).`; }
     else { irNota = "Conferir"; irSemConferencia = true; irRegra = "Decisão da Justiça Estadual contra o INSS: não se aplica a retenção de 3% (só Justiça Federal). Se o benefício for tributável (aposentadoria, pensão), o IR é pelo RRA, retido no pagamento: conferir o número de meses com o Dr. Paulo."; }
   }
   else if(fed){
     if(f.simples){ irNota = "Dispensado (Simples)"; irRegra = "Cessionária optante do Simples Nacional: dispensa da retenção de 3% (Res. CJF 458/2017, art. 26, §1º)."; }
-    else { const b = Math.max(0, bruto - hon); irComprador = b*0.03; irObj = {ir:0, mensal:0, faixa:"3%", base:b}; irNota = "Não desconta do crédito"; irRegra = `O banco retém 3% (${brl(irComprador)}) no pagamento, mas em nome do COMPRADOR: é imposto do comprador, não do crédito, por isso não reduz o valor líquido. PJ do lucro real/presumido abate do IRPJ; PJ do Simples não sofre retenção. ` + "Crédito federal cedido: retenção de 3% sobre o valor pago ao cessionário, em nome dele, ainda que o principal seja RRA (Res. CJF 458/2017, arts. 25, parágrafo único, 26 e 29; Lei 10.833/2003, art. 27). O banco retém no pagamento, em nome do cessionário; para PJ do lucro real ou presumido é antecipação, abatida do IRPJ devido (Res. CJF 458/2017, art. 26, §2º, II). PJ do Simples: marcar a opção e a retenção é dispensada."; }
+    else { const b = Math.max(0, bruto - hon); irComprador = b*0.03; irObj = {ir:0, mensal:0, faixa:"3%", base:b}; irNota = "Não desconta do crédito"; irRegra = `O banco retém 3% (${brl(irComprador)}) no pagamento, mas em nome do COMPRADOR: é imposto do comprador, não do crédito, por isso não reduz o valor líquido. PJ do lucro real/presumido abate do IRPJ; PJ do Simples não sofre retenção. ` + (f.ente==="inss" ? irCredorINSS(bruto, nm) : "") + "Crédito federal cedido: retenção de 3% sobre o valor pago ao cessionário, em nome dele, ainda que o principal seja RRA (Res. CJF 458/2017, arts. 25, parágrafo único, 26 e 29; Lei 10.833/2003, art. 27). O banco retém no pagamento, em nome do cessionário; para PJ do lucro real ou presumido é antecipação, abatida do IRPJ devido (Res. CJF 458/2017, art. 26, §2º, II). PJ do Simples: marcar a opção e a retenção é dispensada."; }
   }
   else if(!fed && nm>0){
     const jm = (leitura.jurosMora>0 && leitura.jurosMora<bruto) ? leitura.jurosMora : 0; const baseIR = Math.max(0, bruto - jm - prev);
@@ -1327,6 +1338,10 @@ function calc(){
   if(!fed && nm>0 && !(leitura.jurosMora>0) && SERVIDOR(f.credorTipo) && ir>0) add("BAIXO", "Juros de mora não vieram separados no ofício/cálculo: o IR foi calculado sobre o valor cheio (conservador). A contadoria do TJGO tira os juros de mora da base (Tema 808/STF); a SELIC continua tributada.");
   if(leitura.credConservador && !fed && !(num(f.prevOficio)>0) && !leitura.semIncidencia) add("MÉDIO", `O processo não deixa claro se o credor é servidor ativo, aposentado ou não servidor: a Mesa usou servidor ativo, que é o maior desconto de previdência. Se ele for aposentado/pensionista ou não for servidor, o líquido real é maior.`);
   if(leitura.credAuto && !(num(f.prevOficio)>0)) add("PROCEDIMENTAL", `Situação do credor identificada pela leitura do processo (${CREDOR[f.credorTipo]||f.credorTipo}${leitura.ingresso?", ingresso em "+leitura.ingresso:""}). Conferir no contracheque.`);
+  if(leitura.ocr) add("PROCEDIMENTAL", `A requisição (pág. ${leitura.ocr.join(", ")}) é imagem e foi lida por OCR. Conferir valor, meses do RRA e datas na própria requisição antes de fechar o preço.`);
+  if(leitura.rpvImagem && !leitura.estruturado) add("MÉDIO", `RPV/precatório expedido (mov. ${leitura.rpvImagem}), mas o arquivo é imagem e o OCR não leu. Valores provisórios tirados do cálculo do exequente homologado${leitura.calcPrev && leitura.calcPrev.mov?" (mov. "+leitura.calcPrev.mov+")":""}. Conferir na requisição.`);
+  if(leitura.calcPrev && leitura.calcPrev.honSuc>0 && src.bruto==="autos") add("PROCEDIMENTAL", `O total do cálculo (${brl(leitura.calcPrev.total)}) inclui ${brl(leitura.calcPrev.honSuc)} de honorários de sucumbência, que são do advogado e saem em requisição própria. A Mesa usou só o crédito do autor (${brl(leitura.calcPrev.credor)}).`);
+  if(leitura.mesesCalcPrev) add("MÉDIO", `Meses do RRA contados nas parcelas do cálculo do exequente (${leitura.calcPrev.meses}). A requisição pode informar outro número (ela conta também o 13º). Conferir.`);
   if(src.rra==="texto" && leitura.mesesTexto) add("MÉDIO", `Meses do RRA tirados do texto do processo: "${leitura.mesesTexto}". Conferir.`);
   if(leitura.credNaoSei) add("MÉDIO", "Situação do credor não confirmada: a Mesa usou servidor ativo (maior desconto de previdência). Se ele for aposentado/pensionista ou não for servidor, o líquido real é maior.");
   if(src.rra==="planilha" && leitura.mesesPlanilha) add("MÉDIO", `Meses do RRA contados na planilha de cálculo: ${leitura.mesesPlanilha.n} competências (${leitura.mesesPlanilha.txt}). Contagem sem os 13º salários, o que dá IR igual ou maior que o do tribunal. Conferir.`);
@@ -1551,7 +1566,8 @@ function portao(u){
   const TT = leitura.titulo;
   if(TT && TT.suspensao) return {status:"naocomprar", motivos:[`O juízo suspendeu a RPV/precatório ou o pagamento depois da homologação (mov. ${TT.suspensao.mov}, pág. ${TT.suspensao.pag}): "${TT.suspensao.trecho.slice(0,220)}". O valor do crédito está em discussão.`]};
   if(leitura.pago) return {status:"naocomprar", motivos:[`Há sinal de que o crédito já foi pago ou levantado (pág. ${leitura.pago}). Conferir antes de qualquer contato.`]};
-  if(!leitura.estruturado && !leitura.cuc && !["advogado","manual"].includes(src.bruto) && paginas.length){
+  if(!leitura.estruturado && !leitura.cuc && !["advogado","manual"].includes(src.bruto) && paginas.length && !(leitura.rpvImagem && leitura.calcPrev && u.bruto>0)){
+    if(leitura.rpvImagem) return {status:"aguardar", motivos:[`Há RPV/precatório expedido (mov. ${leitura.rpvImagem}), mas o arquivo da requisição é imagem e a leitura automática (OCR) não funcionou, e não há cálculo do exequente legível para tirar o valor. Abra a requisição no PDF e digite no quadro o valor, os meses do RRA e a data de expedição.`]};
     if(leitura.soHonorarios) return {status:"naocomprar", motivos:[`O cumprimento de sentença cobra só os honorários do advogado${leitura.soHonorarios!==true?" ("+leitura.soHonorarios+")":""}. Não há crédito em dinheiro do autor para comprar.`]};
     if(leitura.rpvOculta) return {status:"aguardar", motivos:[`Há RPV/precatório expedido (mov. ${leitura.rpvOculta}), mas o PDF veio sem o arquivo: o PROJUDI mostrou "nível de acesso insuficiente". Baixe o processo de novo com o login de um advogado habilitado nos autos (ou peça o ofício ao advogado do cliente) e analise outra vez.`]};
     return {status:"aguardar", motivos:["Não há ofício de RPV/precatório nem cálculo da contadoria nos autos. O processo ainda não chegou ao ponto de compra."]};
@@ -1699,6 +1715,47 @@ const LABELS = [
   ["líquido", /l[íi]quido/i]
 ];
 function setStatus(t){ $("status").textContent = t; }
+/* ---- OCR das requisições que vêm como imagem (ex.: RPV federal do e-PrecWeb juntada no Projudi) ---- */
+let ocrLidas = [];
+function carregarTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  return new Promise((ok,err)=>{ const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"; sc.onload = ok; sc.onerror = ()=>err(new Error("OCR não carregou")); document.head.appendChild(sc); });
+}
+function corpoSemCarimbo(p){
+  return p.replace(/Processo:\s*\d{7}-[^\n]*|Movimenta[çc][ãa]o\s+\d+[^\n]*|Arquivo\s+\d+:[^\n]*|Tribunal de Justi[çc]a do Estado de Goi[áa]s|Documento Assinado[^\n]*|Assinado por[^\n]*|Localizar pelo c[óo]digo[^\n]*|Valor:\s*R\$[^\n]*|PROCESSO C[ÍI]VEL[^\n]*|GOI[ÂA]NIA\s*-\s*CENTRAL[^\n]*|Usu[áa]rio:[^\n]*/gi, " ").replace(/\s+/g," ").trim();
+}
+async function ocrRequisicoes(pdf){
+  ocrLidas = [];
+  const alvo = [];
+  paginas.forEach((p,i)=>{ if(/Movimenta[çc][ãa]o\s+\d+\s*:\s*(?:Requisi[çc][ãa]o\s+de\s+Pequeno\s+Valor|Precat[óo]rio)[^\n]*Expedid/i.test(p) && corpoSemCarimbo(p).length < 150 && !/n[íi]vel\s+de\s+acesso\s+[ée]\s+insuficiente/i.test(p)) alvo.push(i); });
+  if(!alvo.length) return;
+  const lista = alvo.slice(0,6);
+  try{
+    setStatus(`A requisição está em imagem: lendo por OCR (${lista.length} pág.)…`);
+    await carregarTesseract();
+    const w = await Tesseract.createWorker("por", 1, { langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/por@1.0.0/4.0.0", gzip: true });
+    for(const [k,i] of lista.entries()){
+      setStatus(`Lendo requisição em imagem por OCR: ${k+1} de ${lista.length} (pág. ${i+1})…`);
+      const pg = await pdf.getPage(i+1); const vp = pg.getViewport({scale: 2.4});
+      const cv = document.createElement("canvas"); cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+      const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0,0,cv.width,cv.height);
+      await pg.render({canvasContext: cx, viewport: vp}).promise;
+      // corta a faixa da direita (carimbo vertical do Projudi), que vira lixo no OCR
+      const cr = document.createElement("canvas"); cr.width = Math.round(cv.width*0.925); cr.height = cv.height;
+      const c2 = cr.getContext("2d"); c2.fillStyle = "#fff"; c2.fillRect(0,0,cr.width,cr.height); c2.drawImage(cv,0,0);
+      const { data } = await w.recognize(cr);
+      const t = String(data && data.text || "").replace(/:[ \t]*[—–]+[ \t]*/g, ": ").replace(/[ \t]+/g, " ");
+      if(t.trim().length > 80){ paginas[i] = paginas[i] + "\n" + t; ocrLidas.push(i); }
+    }
+    await w.terminate();
+  }catch(e){ console.log("OCR", e); }
+}
+function corrigirMacRoman(t){
+  if(!/C·lculo|Á„o|ÁıES|Á„O|BenefÌcio|AtualizaÁ|N∫ |Previdenci·r|EspÈcie|InÌcio|AtÈ /.test(t)) return t;
+  return t.replace(/È/g,"é").replace(/Ì/g,"í").replace(/Û/g,"ó").replace(/„/g,"ã").replace(/ı/g,"õ").replace(/˙/g,"ú").replace(/∫/g,"º")
+    .replace(/(?<=[A-Za-zÀ-ú])·|·(?=[a-zà-ú])/g,"á").replace(/(?<=[a-zà-ú])‚|‚(?=[a-z])/g,"â").replace(/(?<=[a-zà-ú])‡|‡(?=[a-z])/g,"à")
+    .replace(/(?<=[a-zà-ú])Ù|Ù(?=[a-z])/g,"ô").replace(/(?<=[a-zà-ú])Á(?=[a-zãõà-ú])|Á(?=[ãõ])/g,"ç").replace(/(?<=[a-zà-ú])Í/g,"ê").replace(/(?<![A-Za-zÀ-ú])Õ(?=[a-z])/g,"Í");
+}
 async function lerPDF(file){
   if(!window.pdfjsLib){ setStatus("O leitor de PDF não carregou. Recarregue a página."); return; }
   nomeArquivo = file.name; setStatus("Abrindo " + file.name + "…"); $("bar").style.width = "2%";
@@ -1709,9 +1766,10 @@ async function lerPDF(file){
       const tc = await (await pdf.getPage(i)).getTextContent();
       let t = "", lastY = null;
       for(const it of tc.items){ const y = it.transform ? it.transform[5] : null; if(lastY!==null && y!==null && Math.abs(y-lastY)>4) t += "\n"; else if(t && !t.endsWith(" ")) t += " "; t += it.str; lastY = y; }
-      paginas.push(t.replace(/[ \t]+/g," "));
+      paginas.push(corrigirMacRoman(t.replace(/[ \t]+/g," ")));
       if(i%5===0 || i===pdf.numPages){ $("bar").style.width = Math.round(i/pdf.numPages*100)+"%"; setStatus(`Lendo página ${i} de ${pdf.numPages}…`); await new Promise(r=>setTimeout(r,0)); }
     }
+    await ocrRequisicoes(pdf);
     analisarTexto();
   }catch(e){ setStatus("Não consegui ler este PDF (" + (e && e.message || e) + "). Confira se o arquivo abre normalmente."); $("bar").style.width = "0"; }
 }
@@ -1779,11 +1837,14 @@ function lerEstruturado(pgs){
       const tipo = g(/Tipo\s+de\s+Requisi[çc][ãa]o\s*:\s*([A-Za-zÀ-ú ]{3,60}?)\s{2,}|Tipo\s+de\s+Requisi[çc][ãa]o\s*:\s*([A-Za-zÀ-ú ]{3,40})/i) || "";
       reqs.push({ pagina:i, mov: movOf(p), tipo,
         valor: num(g(/VALOR\s+DESTA\s+REQUISI[ÇC][ÃA]O\s*:?\s*R\$\s*([\d.]+,\d{2})/i)||""),
-        credor: g(/Requerente\s*\/\s*Credor\s*:[ \t]*([A-ZÀ-Ú][^\n]{3,90}?)\s*(?:\n|$)/i) || g(/\n\s*([A-ZÀ-Ú][A-ZÀ-Ú' .]{4,80}?)\s+Requerente\s*\/\s*Credor\s*:/) || g(/\n\s*([A-ZÀ-Ú][A-ZÀ-Ú' .]{4,80}?)\s+\d{11}\s/),
-        devedor: g(/Requerido\s*\/\s*Devedor\s*:\s*([^\n]{3,90}?)\s*(?:\n|$)/i),
+        credor: (g(/Requerente\s*\/\s*Credor\s*:[ \t]*([A-ZÀ-Ú][^\n]{3,90}?)\s*(?:\n|$)/i) || g(/\n\s*([A-ZÀ-Ú][A-ZÀ-Ú' .]{4,80}?)\s+Requerente\s*\/\s*Credor\s*:/) || g(/\n\s*([A-ZÀ-Ú][A-ZÀ-Ú' .]{4,80}?)\s+\d{11}\s/) || "").replace(/[\s|\[\]{}—–_]+$/,"") || null,
+        devedor: (g(/Requerido\s*\/\s*Devedor\s*:\s*([^\n]{3,90}?)\s*(?:\n|$)/i)||"").replace(/[\s|\[\]{}—–_]+$/,"") || null,
         transito: g(/tr[âa]nsito\s+em\s+julgado\s+do\s+processo\s+de\s+conhecimento\s*:[ \t]*(\d{2}\/\d{2}\/\d{4})/i) || (datas.length>=2 ? datas[1] : null),
         cadastro: g(/Data\s+de\s+Cadastro\s+da\s+Requisi[çc][ãa]o\s*:\s*(\d{2}\/\d{2}\/\d{4})/i),
         meses: +(g(/N[úu]m\.?\s+de\s+parcelas\s+de\s+exerc[íi]cios\s+anteriores\s*:[ \t]*(\d{1,3})\b/i) || g(/N[úu]m\.?\s+de\s+parcelas\s+de\s+exerc[íi]cios\s+anteriores\s*:[\s\S]{0,80}?\n\s*(\d{1,3})\s+VALOR\s+DESTA/i) || g(/Quantidade\s+de\s+Parcelas\s+dos\s+Exerc[íi]cios\s+Anteriores\s*:\s*(\d{1,3})/i) || 0),
+        mesesCor: +(g(/N[úu]m\.?\s+de\s+parcelas\s+do\s+exerc[íi]cio\s+corrente\s*:[ \t]*(\d{1,3})\b/i) || 0),
+        valAnt: num(g(/Valor\s+de\s+exerc[íi]cios\s+anteriores\s*:?\s*R\$\s*([\d.]+,\d{2})/i)||""),
+        valCor: num(g(/Valor\s+do\s+exerc[íi]cio\s+corrente\s*:?\s*R\$\s*([\d.]+,\d{2})/i)||""),
         assunto: g(/\(Assunto\)\s*:\s*([^\n]{5,140})/i),
         precatorio: /precat[óo]rio\s*-\s*PRC|\bPrecat[óo]rio\b\s*\n/i.test(p) && !/Requisi[çc][ãa]o\s+de\s+Pequeno\s+Valor\s*-\s*RPV/i.test(p),
         trf: /TRIBUNAL\s+REGIONAL\s+FEDERAL/i.test(p),
@@ -1794,7 +1855,7 @@ function lerEstruturado(pgs){
     out.reqSucumb = reqs.filter(r=>r.sucumb);
     out.reqContratual = reqs.filter(r=>r.contratual);
     if(principais.length){ const r = principais[principais.length-1]; out.reqTRF = r;
-      if(!out.oficio){ out.oficio = { bruto: r.valor, liquido: null, credor: r.credor, executado: r.devedor, transito: r.transito, expedicao: r.cadastro, mesesRRA: r.meses>0 ? String(r.meses) : null, assunto: r.assunto, mov: r.mov, natureza: "Alimentar", modelo: "requisicao-trf", precatorio: r.precatorio, honor: out.reqContratual.length ? null : null }; }
+      if(!out.oficio){ out.oficio = { bruto: r.valor, liquido: null, credor: r.credor, executado: r.devedor, transito: r.transito, expedicao: r.cadastro, mesesRRA: (r.meses+(r.mesesCor||0))>0 ? String(r.meses+(r.mesesCor||0)) : null, assunto: r.assunto, mov: r.mov, natureza: "Alimentar", modelo: "requisicao-trf", precatorio: r.precatorio, honor: out.reqContratual.length ? null : null }; }
     }
     if(!out.sucInfo && out.reqSucumb.length){ const r = out.reqSucumb[out.reqSucumb.length-1]; out.rpvSucumbencial = (out.rpvSucumbencial||0) + out.reqSucumb.length; out.sucInfo = {mov: r.mov, valor: r.valor, quem: r.credor}; out.sucPaginas = (out.sucPaginas||[]).concat(out.reqSucumb.map(x=>x.pagina)); }
   }
@@ -1935,6 +1996,30 @@ function lerEstruturado(pgs){
   out.pago = iPago>=0 ? iPago+1 : null;
   out.pagamento = {vencida: iVenc>=0, pagVenc: iVenc>=0 ? iVenc+1 : null, sequestro: iSeq>=0, pagSeq: iSeq>=0 ? iSeq+1 : null, dataSeq: iSeq>=0 ? (pgs[iSeq].match(/Data\/hora de protocolamento\s*:\s*(\d{2}\/\d{2}\/\d{4})/i)||[])[1] || dataPg(iSeq) : null};
   out.poloPassivo = grab(capa, /Polo\s+Passivo\s+([^\n]{3,80})/i);
+  // Cálculo previdenciário do exequente (Resumo do Cálculo): separa o crédito do autor dos honorários de sucumbência
+  { const RN = "(?:R\\$\\s*)?([\\d.]+,\\d{2})"; let cp = null;
+    const temTransito = pgs.some(p=>/Movimenta[çc][ãa]o\s+\d+\s*:\s*Transitad[oa]\s+em\s+Julgado|TRANSITOU\s+EM\s+JULGADO/i.test(p));
+    if(temTransito) pgs.forEach((p,i)=>{ if(movOf(p)===1 || !/Resumo\s+do\s+C[áa]lculo/i.test(p) || !/Esp[ée]cie\s+do\s+Benef[íi]cio/i.test(p)) return;
+      const g = re => { const m = p.match(re); return m ? num(m[1]) : null; };
+      const total = g(new RegExp("Total\\s+Geral\\s*:?\\s*"+RN,"i"));
+      const honSuc = g(new RegExp("Total\\s+Atualizado\\s+de\\s+Honor[áa]rios\\s*:?\\s*"+RN,"i"));
+      const pAt = g(new RegExp("Principal\\s+Atualizado\\s*:\\s*"+RN,"i"));
+      const jT = g(new RegExp("(?<!\\+\\s{0,3})Total\\s+dos\\s+Juros\\s*:\\s*"+RN,"i"));
+      const rot = g(new RegExp("Principal\\s+Atualizado\\s*\\+\\s*Total\\s+dos\\s+Juros\\s*:?\\s*"+RN,"i"));
+      const rotAntes = g(new RegExp(RN.replace("(?:R\\$\\s*)?","")+"\\s*\\n?\\s*Principal\\s+Atualizado\\s*\\+\\s*Total\\s+dos\\s+Juros","i"));
+      const ok = (a,b) => a>0 && b>0 && Math.abs(a-b) < 0.06;
+      const th = (total>0 && honSuc>=0 && total>honSuc) ? Math.round((total-honSuc)*100)/100 : null;
+      const pj = (pAt>0 && jT>=0) ? Math.round((pAt+jT)*100)/100 : null;
+      let credor = null;
+      for(const c of [th, pj, rot, rotAntes]){ if(c>0 && [th,pj,rot,rotAntes].filter(x=>ok(x,c)).length>=2){ credor = c; break; } }
+      if(credor==null) credor = th || pj || null;
+      const esp = p.match(/(\b\d{2})\s*-\s*((?:Aux[íi]lio|Aposentadoria|Pens[ãa]o|Benef[íi]cio|Amparo|Sal[áa]rio)[^\n]{3,90}?)(?=\s+\d{2}\/\d{2}\/\d{4}|\n|$)/i);
+      const dib = (p.match(/In[íi]cio\s+do\s+Benef[íi]cio\s*\(DIB\)[\s\S]{0,200}?(\d{2}\/\d{2}\/\d{4})/i)||[])[1] || null;
+      if(credor>0) cp = {pagina:i, mov: movOf(p), credor, total, honSuc, especie: esp ? esp[1]+" - "+esp[2].trim() : null, dib}; });
+    if(!cp && temTransito){ const sub = (pgs.join("\n").match(/Subtotal\s+devido\s+ao\s+exequente\s*:?\s*R\$\s*([\d.]+,\d{2})/i)||[])[1]; if(sub) cp = {credor: num(sub), total:null, honSuc:null, especie:null}; }
+    if(cp){ // meses das diferenças (linhas MM/AAAA da planilha do cálculo, sem as de 13º)
+      const set = new Set(); pgs.forEach(p=>{ if(!/Diferen[çc]as|Relat[óo]rio\s+das\s+Diferen/i.test(p)) return; const re = /(?:^|\s)(0[1-9]|1[0-2])\/(\d{4})\s+R\$\s*[\d.]+,\d{2}/g; let m; while((m = re.exec(p))) set.add(+m[2]*100+ +m[1]); });
+      cp.meses = set.size; out.calcPrev = cp; } }
   out.prioridadeCapa = grab(capa, /Prioridade\.*\s*:\s*([A-Za-zÀ-ú ]{3,30})/i);
   // Penhora: só movimentação ou termo próprio (ignora jurisprudência citada)
   out.penhora = pgs.some(p=>!/SISBAJUD|BLOQUEIO\s+DE\s+VALORES|sequestro/i.test(p) && (/(?:AUTO|TERMO)\s+DE\s+PENHORA|LAVRO\s+A\s+PENHORA|penhora\s+no\s+rosto\s+dos\s+autos\s+(?:deferida|registrada|anotada|averbada|efetivada)|Movimenta[çc][ãa]o\s+\d+\s*:\s*Penhora/i.test(p)));
@@ -2109,7 +2194,9 @@ function analisarTexto(){
 
   // Valores: ofício estruturado > cálculo da CUC > rótulos soltos
   const S = E.sicar || null; leitura.sicar = !!S;
+  leitura.calcPrev = E.calcPrev || null; leitura.ocr = (typeof ocrLidas!=="undefined" && ocrLidas.length) ? ocrLidas.map(i=>i+1) : null;
   if(O.bruto>0){ ficha.bruto = numInput(O.bruto); src.bruto = "oficio"; }
+  else if(E.calcPrev && E.calcPrev.credor>0 && !(C.total>0)){ ficha.bruto = numInput(E.calcPrev.credor); src.bruto = "autos"; }
   else if(S && S.total>0 && !(C.total>0)){ ficha.bruto = numInput(S.total); src.bruto = "autos"; if(S.principal>0){ ficha.principal = numInput(S.principal); src.principal = "autos"; } }
   else if(C.total>0){ ficha.bruto = numInput(C.total); src.bruto = "autos"; }
   else { const t = uniq.filter(a=>a.lbl==="total").sort((a,b)=>b.v-a.v)[0]; if(t){ ficha.bruto = numInput(t.v); src.bruto = "autos"; } }
@@ -2122,6 +2209,7 @@ function analisarTexto(){
   if(O.ir!=null){ ficha.irOficio = numInput(O.ir); src.irOficio = "oficio"; }
   if(O.mesesRRA && +O.mesesRRA>0){ ficha.rra = String(+O.mesesRRA); src.rra = "oficio"; }
   else if(C.meses){ ficha.rra = String(C.meses); src.rra = "autos"; }
+  else if(E.calcPrev && E.calcPrev.meses>=3 && !(O.bruto>0)){ ficha.rra = String(E.calcPrev.meses); src.rra = "autos"; leitura.mesesCalcPrev = true; }
   else if(S && (S.mesesCor+S.mesesAnt)>0){ ficha.rra = String(S.mesesCor+S.mesesAnt); src.rra = "autos"; }
   else { const mp = mesesPlanilha(paginas); if(mp.n>=3){ ficha.rra = String(mp.n); src.rra = "planilha"; leitura.mesesPlanilha = mp; }
     else { const NM = "(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|0?[1-9]|1[0-2])";
@@ -2137,12 +2225,29 @@ function analisarTexto(){
     const all2 = paginas.join("\n"); const re2 = /Movimenta[çc][ãa]o\s+(\d+)\s*:\s*(?:Requisi[çc][ãa]o\s+de\s+Pequeno\s+Valor|Precat[óo]rio)\s+Expedid[oa]/gi; let mm;
     while((mm = re2.exec(all2))){ const tr = all2.slice(Math.max(0,mm.index-600), mm.index+400); if(/n[íi]vel\s+de\s+acesso\s+[ée]\s+insuficiente/i.test(tr) && !ocult.includes(mm[1])) ocult.push(mm[1]); }
     leitura.rpvOculta = ocult.length ? [...new Set(ocult)].join(", ") : null;
+    { const movs = []; paginas.forEach(p=>{ if(corpoSemCarimbo(p).length >= 150) return; const m = p.match(/Movimenta[çc][ãa]o\s+(\d+)\s*:\s*(?:Requisi[çc][ãa]o\s+de\s+Pequeno\s+Valor|Precat[óo]rio)[^\n]*Expedid/i); if(m){ const d = (p.match(/Publicado\s+Digitalmente\s+em\s+(\d{2}\/\d{2}\/\d{4})/i)||[])[1]; if(!movs.some(x=>x.mov===m[1])) movs.push({mov:m[1], data:d||null}); } });
+      leitura.reqMovs = movs.length ? movs : null;
+      if(movs.length && !E.oficio && !leitura.rpvOculta){ leitura.rpvImagem = movs.map(x=>x.mov+(x.data?" em "+x.data:"")).join("; "); if(!ficha.expedicao && movs[0].data) { ficha.expedicao = isoDe(movs[0].data); src.expedicao = "autos"; } } }
     const sh = all2.match(/busca-se\s+nesta\s+modalidade\s+somente\s+o\s+pagamento\s+dos\s+honor[áa]rios(?:\s+no\s+valor\s+de\s+(R\$\s*[\d.]+,\d{2}))?|execu[çc][ãa]o\s+(?:apenas|somente|exclusivamente)\s+dos\s+honor[áa]rios/i);
     leitura.soHonorarios = sh ? (sh[1] || true) : null; }
-  leitura.justicaEstadual = !!(ficha.processo && /\.8\.\d{2}\.\d{4}$/.test(ficha.processo)) && !(E.reqTRF && E.reqTRF.trf);
+  // Competência: delegada (RPV no e-PrecWeb do TRF1, paga pela Justiça Federal) x acidentária originária (Projudi)
+  const certDelegada = /\(\s*X\s*\)\s*Expedi[çc][ãa]o\s+de\s+RPV\s+e\/ou\s+Precat[óo]rio\s+de\s+compet[êe]ncia\s+delegada/i.test(all);
+  const certAcident = /\(\s*X\s*\)\s*Expedi[çc][ãa]o\s+de\s+RPV\s+de\s+compet[êe]ncia\s+origin[áa]ria\s+da\s+Justi[çc]a\s+Estadual/i.test(all);
+  leitura.delegada = (certDelegada || !!(E.reqTRF && E.reqTRF.trf)) && !certAcident;
+  leitura.justicaEstadual = !!(ficha.processo && /\.8\.\d{2}\.\d{4}$/.test(ficha.processo)) && !leitura.delegada;
   leitura.reqTRF = E.reqTRF || null;
-  const cAux = (all.match(/aux[íi]lio[- ]acidente|aux[íi]lio[- ]doen[çc]a|aux[íi]lio\s+por\s+incapacidade\s+tempor[áa]ria/gi)||[]).length;
-  leitura.beneficioIsento = cAux>=2 ? (/aux[íi]lio[- ]acidente/i.test(all) ? "auxílio-acidente" : "auxílio-doença") : null; leitura.cAux = cAux; leitura.movOficio = O.mov || null; leitura.sucInfo = E.sucInfo || null;
+  // Benefício: só pela espécie/assunto da requisição, do cálculo ou do dispositivo da sentença (nunca por ementa citada)
+  { const dispo = (all.match(/implantar\s+o\s+benef[íi]cio\s+(?:de\s+)?([A-Za-zÀ-ú\- ]{5,60}?)(?:\s+ao\b|,|\.)/i)||[])[1] || "";
+    const fonteBen = [(E.reqTRF && E.reqTRF.assunto)||"", O.assunto||"", (E.calcPrev && E.calcPrev.especie)||"", dispo].join(" | ");
+    let ben = null;
+    if(/(?:^|\|)\s*(?:94|36)\s*-|aux[íi]lio[- ]acidente/i.test(fonteBen)) ben = "auxílio-acidente";
+    else if(/(?:^|\|)\s*(?:31|91)\s*-|aux[íi]lio[- ]doen[çc]a|incapacidade\s+tempor[áa]ria/i.test(fonteBen)) ben = "auxílio-doença";
+    else if(/(?:^|\|)\s*(?:32|92)\s*-|aposentadoria\s+por\s+(?:invalidez|incapacidade)/i.test(fonteBen)) ben = "aposentadoria por incapacidade permanente";
+    else if(/aposentadoria/i.test(fonteBen)) ben = "aposentadoria";
+    else if(/pens[ãa]o\s+por\s+morte|(?:^|\|)\s*21\s*-/i.test(fonteBen)) ben = "pensão por morte";
+    else if(/sal[áa]rio[- ]maternidade/i.test(fonteBen)) ben = "salário-maternidade";
+    leitura.beneficio = ben; leitura.beneficioIsento = ben==="auxílio-acidente" ? ben : null; }
+  leitura.cAux = (all.match(/aux[íi]lio[- ]acidente|aux[íi]lio[- ]doen[çc]a|aux[íi]lio\s+por\s+incapacidade\s+tempor[áa]ria/gi)||[]).length; leitura.movOficio = O.mov || null; leitura.sucInfo = E.sucInfo || null;
   if(O.saude>0){ ficha.outras = numInput(O.saude); src.outras = "oficio"; }
 
   // Honorários: ofício > cálculo da CUC > nada (nunca tirar percentual de texto solto: pega jurisprudência citada)
@@ -2223,7 +2328,7 @@ function analisarTexto(){
       ct = mRest ? "restituicao" : "indenizacao"; ctSrc = "autos";
       leitura.naturezaIsenta = (mRest||mInd)[0].replace(/\s+/g," ").trim().slice(0,90);
       ficha.prevOficio = "0"; src.prevOficio = "oficio"; leitura.semIncidencia = true;
-    } else if((mRest || mInd) && temEvidServ && !SERVIDOR(ct)){
+    } else if((mRest || mInd) && temEvidServ && !SERVIDOR(ct) && ficha.ente!=="inss"){
       leitura.indBloqueada = (mRest||mInd)[0].replace(/\s+/g," ").trim().slice(0,90);
     } }
   if(!ct){ ct = "ativo"; ctSrc = "conservador"; leitura.credConservador = true; }
