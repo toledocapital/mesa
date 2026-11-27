@@ -324,7 +324,7 @@ footer{color:var(--muted);font-size:11.5px;padding-block:22px 30px}
         <div class="f"><label for="honVal">% ou valor dos honorários</label><input id="honVal" inputmode="decimal"></div>
         <div class="f"><label for="rra">RRA: número de meses</label><input id="rra" inputmode="numeric"></div>
         <div class="f"><label for="irOficio">IR informado no ofício (R$)</label><input id="irOficio" inputmode="decimal"><div class="hint">Vazio: a página calcula pelo RRA.</div></div>
-        <div class="f"><label for="prevOficio">Previdência / PSS no ofício (R$)</label><input id="prevOficio" inputmode="decimal"><div class="hint">Zero ou vazio para servidor: aplica a regra da casa.</div></div>
+        <div class="f"><label for="prevOficio">Previdência / PSS no ofício (R$)</label><input id="prevOficio" inputmode="decimal"><div class="hint">Zero ou vazio para servidor: a Mesa calcula pela lei do ente; sem lei no projeto, o parecer fica travado.</div></div>
         <div class="f"><label for="outras">Plano de saúde, penhoras, compensações (R$)</label><input id="outras" inputmode="decimal"></div>
         <div class="f full checks">
           <label><input type="checkbox" id="superpref"> Credor tem superpreferência</label>
@@ -387,7 +387,7 @@ footer{color:var(--muted);font-size:11.5px;padding-block:22px 30px}
       <ol class="passos">
         <li><b>Valor do ofício</b>, sem atualização.</li>
         <li><b>− Honorários do advogado:</b> % × valor do ofício. Saem inteiros, sem desconto nenhum (destacados no processo ou, se não houver destaque, informados pelo cliente). Eles não reduzem a base da previdência nem do IR.</li>
-        <li><b>− Previdência sobre o valor do ofício inteiro.</b> A parte do advogado também é remuneração do servidor, só que repassada; quem arca com toda a previdência é a parte do credor. Estado 14,25% · Goiânia e demais municípios 14% · servidor federal: o PSS do ofício. Aposentado/pensionista do Estado: só sobre o que passa de R$ 3.000 por mês. Não servidor, INSS e LOAS: não tem. Se o ofício ou a contadoria trouxer a previdência, vale a deles (a contadoria já tira o abono de permanência).</li>
+        <li><b>− Previdência sobre o valor do ofício inteiro.</b> A parte do advogado também é remuneração do servidor, só que repassada; quem arca com toda a previdência é a parte do credor. Pela lei de cada ente e pela alíquota de cada competência: Estado 11% até 03/2013, 13,25% até 03/2017 e 14,25% depois (LC 77/2010, LC 100/2012, LC 126/2016, LC 161/2020) · Goiânia 11% e 14% desde 05/2021 (LC 336/2021) · Aparecida 11% e 14% desde 04/2021 (LC 180/2020) · Anápolis 14% desde 04/2021 (LC 457/2020) · aposentado/pensionista só sobre o que passa do limite da lei (Estado: R$ 3.000 desde 2022; municípios: teto do INSS) · servidor federal: o PSS do ofício. Ente sem lei no projeto (Rio Verde, Valparaíso e outros): o parecer trava até você digitar a previdência do ofício. Não servidor, INSS e LOAS: não tem. Se o ofício ou a contadoria trouxer a previdência, vale a deles (a contadoria já tira o abono de permanência).</li>
         <li><b>− Imposto de renda pelo RRA</b>, igual à contadoria do TJGO: base = ofício − juros de mora − previdência (os juros de mora não sofrem IR, Tema 808/STF; a SELIC sofre). Base ÷ número de meses → tabela mensal → × número de meses. Os honorários <b>não</b> saem da base do IR. Indenização e LOAS: isentos. INSS e União com cessão: 3% sobre o valor pago ao cessionário.</li>
         <li><b>= Líquido.</b> Se o tribunal também calculou o líquido, vale o <b>menor</b> dos dois.</li>
       </ol>
@@ -399,9 +399,10 @@ footer{color:var(--muted);font-size:11.5px;padding-block:22px 30px}
             <tr><td>Estado, 12/05/2023 a 13/11/2025</td><td>40 SM</td></tr>
             <tr><td>Estado, desde 14/11/2025</td><td>10 SM</td></tr>
             <tr><td>Goiânia</td><td>30 SM</td></tr>
-            <tr><td>Anápolis, desde 25/03/2026</td><td>12 SM (conferir)</td></tr>
+            <tr><td>Anápolis, trânsito desde 27/03/2026</td><td>12 SM (Lei 4.542/2026)</td></tr>
             <tr><td>Goianésia, trânsito após 01/09/2023</td><td>R$ 8.000,00</td></tr>
-            <tr><td>Aparecida, Rio Verde, Vila Propício</td><td>sem lei cadastrada</td></tr>
+            <tr><td>Aparecida, trânsito desde 08/02/2006</td><td>15 SM (Lei 2.560/2006)</td></tr>
+            <tr><td>Rio Verde, Valparaíso, Vila Propício</td><td>sem lei cadastrada</td></tr>
             <tr><td>Outro município</td><td>30 SM (ADCT 87)</td></tr>
             <tr><td>INSS, União e autarquias</td><td>60 SM</td></tr>
           </tbody></table></div>
@@ -1123,6 +1124,65 @@ function detectarVerbaLegal(verba, assunto, servidor, oficio){
   return null;
 }
 
+/* ===== PREVIDÊNCIA POR LEI E POR COMPETÊNCIA (textos no projeto, conferidos em 27/11/2026) =====
+   Cada faixa: [de AAAAMM, até AAAAMM, alíquota %, fonte]. Retroativo judicial: alíquota de cada competência
+   (LC 161/2020, art. 19, §3º, I; LC 312/2018 de Goiânia, art. 80). Sem competências identificáveis: alíquota
+   vigente no pagamento (LC 161/2020, art. 19, §3º, II; LC 312/2018, art. 80, parágrafo único). */
+const TETO_RGPS = {2010:3467.40,2011:3691.74,2012:3916.20,2013:4159.00,2014:4390.24,2015:4663.75,2016:5189.82,2017:5531.31,2018:5645.80,2019:5839.45,2020:6101.06,2021:6433.57,2022:7087.22,2023:7507.49,2024:7786.02,2025:8157.41,2026:8475.55};
+function tetoRGPS(k){ const a = Math.floor(k/100); const ks = Object.keys(TETO_RGPS).map(Number); return TETO_RGPS[a] || TETO_RGPS[a < ks[0] ? ks[0] : ks[ks.length-1]]; }
+function smK(k){ const a = Math.floor(k/100), m = k%100; return smEm(`${a}-${String(m).padStart(2,"0")}-01`); }
+const PREV_LEI = {
+  estado: { nome:"GOIASPREV",
+    ativo: [[0,201001,null,"anterior à LC 77/2010 (lei não está no projeto)"],
+            [201002,201303,11,"LC 77/2010, art. 23, I (redação original)"],
+            [201304,201703,13.25,"LC 100/2012, arts. 1º e 2º (efeitos a partir de 01/04/2013)"],
+            [201704,999912,14.25,"LC 126/2016, arts. 2º e 6º, I (90 dias após 29/12/2016); LC 161/2020, art. 18, I"]],
+    piso: k => k<=202012 ? {v:tetoRGPS(k), t:"teto do RGPS (LC 77/2010, art. 23, II)"} : k<=202112 ? {v:smK(k), t:"1 salário mínimo (LC 161/2020, art. 18, §2º, redação original)"} : {v:Math.max(3000, smK(k)), t:"maior entre R$ 3.000 e 1 SM (LC 161/2020, art. 18, §2º, red. LC 168/2021)"},
+    teto17: "LC 77/2010, art. 23, I, b (LC 137/2017); LC 161/2020, art. 18, §1º, II" },
+  goiania: { nome:"GoiâniaPrev",
+    ativo: [[0,201809,null,"anterior à LC 312/2018 (lei não está no projeto)"],
+            [201810,202104,11,"LC 312/2018, art. 78, redação original (11%: texto original não está no projeto; conferir)"],
+            [202105,999912,14,"LC 312/2018, art. 78, red. LC 336/2021 (DOM 29/01/2021; cobrança após 90 dias, CF art. 195, §6º)"]],
+    piso: k => ({v:tetoRGPS(k), t:"teto do RGPS (LC 312/2018, art. 81)"}), aviso:"Aposentado com doença incapacitante: incide só acima do dobro do teto do RGPS (LC 312/2018, art. 81, parágrafo único)." },
+  aparecida: { nome:"AparecidaPrev",
+    ativo: [[0,200506,11,"LC 007/2002 (regime anterior)"],
+            [200507,202103,11,"LC 010/2005, art. 80, I (redação original)"],
+            [202104,999912,14,"LC 010/2005, art. 80, I, red. LC 180/2020 (DOM 28/12/2020; cobrança após 90 dias, CF art. 195, §6º); LC 243/2025, art. 4º"]],
+    piso: k => ({v:tetoRGPS(k), t:"teto do RGPS (LC 010/2005, art. 80, II; LC 243/2025, art. 5º)"}) },
+  anapolis: { nome:"ISSA/PREVIAN",
+    ativo: [[0,202103,null,"anterior à LC 457/2020 (lei não está no projeto)"],
+            [202104,999912,14,"LC 457/2020, art. 5º, §2º (29/12/2020; cobrança após 90 dias, CF art. 195, §6º)"]],
+    piso: k => ({v:smK(k), t:"1 salário mínimo, se houver déficit atuarial (LC 457/2020, art. 5º, §4º); sem déficit, só acima do teto do RGPS (§3º). Usado o critério mais conservador"}) }
+};
+function regraPrev(ente, tipo, bruto, nm, comps, dataPag){
+  const L = PREV_LEI[ente];
+  const r = {prev:0, aliqTxt:"", fontes:[], semLei:false, motivoSemLei:"", avisos:[], base:0, meses:0};
+  if(!L){ r.semLei = true; r.motivoSemLei = `Não há lei de previdência deste ente no projeto (${ENTES[ente]||ente}).`; return r; }
+  let ks = (comps||[]).filter(k=>k>200000).sort((a,b)=>a-b);
+  const porComp = ks.length>0;
+  if(!porComp){ const d = (dataPag||hoje()); ks = [ +d.slice(0,4)*100 + +d.slice(5,7) ]; r.avisos.push("Sem competências identificadas: usada a alíquota vigente no pagamento (LC 161/2020, art. 19, §3º, II; LC 312/2018 de Goiânia, art. 80, parágrafo único)."); }
+  const n = porComp ? ks.length : Math.max(1, nm||1);
+  const media = bruto / n; r.meses = n;
+  const usadas = new Map(); let soma = 0, base = 0;
+  const peso = porComp ? 1 : n;
+  for(const k of ks){
+    const fx = L.ativo.find(([a,b])=>k>=a && k<=b);
+    if(!fx || fx[2]==null){ r.semLei = true; r.motivoSemLei = `Há competência (${fmtK(k)}) sem lei no projeto: ${fx?fx[3]:"faixa não cadastrada"}.`; continue; }
+    let bm = media, desc = "";
+    if(tipo==="aposentado"){ const p = L.piso(k); bm = Math.max(0, media - p.v); desc = p.t; }
+    else if(tipo==="ativo17" && L.teto17 && k>=201707){ bm = Math.min(media, tetoRGPS(k)); desc = "base limitada ao teto do RGPS ("+L.teto17+")"; }
+    soma += bm*fx[2]/100*peso; base += bm*peso;
+    const chave = fx[2]+"|"+fx[3]+(desc?"|"+desc:""); usadas.set(chave, (usadas.get(chave)||0) + (porComp?1:n));
+  }
+  r.prev = soma; r.base = base;
+  r.fontes = [...usadas.entries()].map(([c,q])=>{ const [a,f,d] = c.split("|"); return `${pct(+a)} em ${q} ${q===1?"mês":"meses"} (${f}${d?"; "+d:""})`; });
+  const al = [...new Set([...usadas.keys()].map(c=>+c.split("|")[0]))];
+  r.aliqTxt = al.map(a=>pct(a)).join(" / ");
+  if(L.aviso && tipo==="aposentado") r.avisos.push(L.aviso);
+  if(tipo==="ativo17" && ente!=="estado") r.avisos.push("Ingresso após o regime complementar: a lei municipal pode limitar a base ao teto do RGPS. Conferir.");
+  if(tipo==="aposentado" || tipo==="ativo17") r.avisos.push("Cálculo por média mensal (crédito ÷ meses), com correção e juros incluídos: aproximação.");
+  return r;
+}
 function smEm(d){ let v = SM[0].v; for(const s of SM){ if(d >= s.de) v = s.v; } return v; }
 function teto(ente, t, exp){
   const sm = smEm(exp); const r = {sm, sm_n:null, valor:null, norma:"", tese:"", aviso:""};
@@ -1135,26 +1195,18 @@ function teto(ente, t, exp){
   } else if(ente==="goiania"){ r.sm_n=30; r.norma="ADCT, art. 87"; }
   else if(ente==="anapolis"){
     if(!t){ r.aviso="Sem data de trânsito: Anápolis pode ser 12 ou 30 SM."; return r; }
-    if(t >= "2026-03-25"){ r.sm_n=12; r.norma="LC municipal 003/2026"; r.aviso="Confirmar sanção e publicação da LC 003/2026."; } else { r.sm_n=30; r.norma="Regra anterior à LC 003/2026"; }
+    if(t >= "2026-03-27"){ r.sm_n=12; r.norma="Lei municipal 4.542/2026, art. 1º (DOM de 27/03/2026)"; } else { r.sm_n=30; r.norma="ADCT, art. 87 (trânsito antes da Lei 4.542/2026; Tema 792)"; }
   } else if(ente==="goianesia"){
     if(!t){ r.aviso="Sem data de trânsito: teto de Goianésia indefinido."; return r; }
     if(t > "2023-09-01"){ r.valor=8000; r.norma="Lei municipal 3.972/2023"; } else { r.sm_n=30; r.norma="Regra anterior à Lei 3.972/2023"; }
+  } else if(ente==="aparecida"){
+    if(!t){ r.aviso="Sem data de trânsito: teto de Aparecida indefinido."; return r; }
+    if(t >= "2006-02-08"){ r.sm_n=15; r.norma="Lei municipal 2.560/2006, art. 1º"; r.aviso="Texto da Lei 2.560/2006 tirado de compilação não oficial (leis.org): conferir se houve alteração posterior."; } else { r.sm_n=30; r.norma="ADCT, art. 87 (trânsito antes da Lei 2.560/2006)"; }
   } else if(FEDERAL(ente)){ r.sm_n=60; r.norma="Lei 10.259/2001, art. 17, §1º"; }
   else if(ente==="outro"){ r.sm_n=30; r.norma="ADCT, art. 87"; r.aviso="Conferir se o município tem lei própria de teto."; }
   else { r.aviso="Teto deste município não cadastrado."; }
   if(r.sm_n && r.valor===null) r.valor = r.sm_n*sm;
   return r;
-}
-// IR do autor (antes da cessão) em benefício do INSS pago pelo TRF: Res. CJF 458/2017, art. 28 (RPV com RRA)
-function irCredorINSS(bruto, nm){
-  const ben = leitura.beneficio;
-  if(ben==="auxílio-acidente") return `Para o autor, o auxílio-acidente é tratado como isento. `;
-  const nome = ben ? ben : "o benefício (espécie não identificada nos autos)";
-  const n = nm>0 ? nm : 0;
-  let t = `IR do autor, antes da cessão: ${nome} é rendimento tributável${ben?"":" se for auxílio-doença, aposentadoria ou pensão"}; não há isenção por doença grave em auxílio-doença (a isenção da Lei 7.713/88, art. 6º, XIV, é só para aposentadoria, reforma e pensão). `;
-  if(n>0){ const r = irRRA(bruto, n); t += `Pelo RRA (${n} meses), a base mensal é ${brl(r.mensal)}: ${r.ir>0 ? "IR de "+brl(r.ir)+"." : "abaixo da faixa isenta ("+brl(IR_FAIXAS[0][0])+"), então o IR do autor é zero."} Res. CJF 458/2017, art. 28: parcelas de anos anteriores pela tabela × meses; parcelas do ano da requisição com 3% se o saque for no mesmo ano; saque no ano seguinte, tudo pela tabela × meses. `; }
-  else t += `Faltam os meses do RRA para calcular o IR do autor. `;
-  return t + `Depois da cessão vale a retenção de 3% em nome do comprador (abaixo). `;
 }
 function irRRA(base, nm){
   const n = Math.max(1, nm||1); const m = base>0 ? base/n : 0;
@@ -1233,7 +1285,7 @@ function calc(){
   const honSobrePrincipal = (f.honModo==="pct"||f.honModo==="valor") ? principal*(honPct/100) : 0;
 
   const prevOf = num(f.prevOficio);
-  let prev = 0, prevNota = "", prevRegra = "", prevCorrigida = false;
+  let prev = 0, prevNota = "", prevRegra = "", prevCorrigida = false, prevSemLei = false;
   if(!SERVIDOR(f.credorTipo)){ prevNota = "Não incide"; prevRegra = f.credorTipo==="beneficio" ? "Benefício do RGPS pago pelo INSS: não há contribuição." : f.credorTipo==="loas" ? "Benefício assistencial (LOAS/BPC): não há contribuição previdenciária." : f.credorTipo==="restituicao" ? "Restituição de valores descontados indevidamente: não é remuneração nova, então não há contribuição previdenciária." : "Credor não é servidor público: não há contribuição."; }
   else if(verbaIsenta || (regraLegalDetectada && regraLegalDetectada.prevIsento)){
     prevNota = "Não incide (verba isenta)";
@@ -1241,23 +1293,19 @@ function calc(){
     else prevRegra = verbaIsenta==="ferias" ? "Férias indenizadas (não gozadas) + 1/3 constitucional: verba indenizatória isenta de contribuição previdenciária (LC 161/2020, art. 19; CF art. 7º, XVII)." : verbaIsenta==="licpremio" ? "Licença-prêmio convertida em pecúnia: verba indenizatória isenta de contribuição previdenciária (LC 161/2020, art. 19)." : verbaIsenta==="danomoral" ? "Indenização por dano moral: não é remuneração, não incide contribuição previdenciária." : "Verba indenizatória isenta de contribuição previdenciária (LC 161/2020, art. 19).";
   }
   else if(leitura.semIncidencia && (src.prevOficio==="oficio"||src.prevOficio==="autos"||src.prevOficio==="advogado") && !(prevOf>0)){ prev = 0; prevNota = "Não incide"; prevRegra = `A contadoria (CUC) classificou a verba${leitura.verba?" ("+leitura.verba.toLowerCase()+")":""} como sem incidência previdenciária e o ofício traz previdência zero. Regra da casa não aplicada porque o zero tem fundamento no cálculo, não é omissão do ofício.`; }
-  else if(prevOf>0){ prev = prevOf; prevNota = fed ? "PSS do ofício" : (src.prevOficio==="autos" ? "Do cálculo da contadoria" : "Retida no ofício"); prevRegra = fed ? "Valor de PSS informado pelo juízo no ofício, retido no saque (Res. CJF 458/2017, art. 30)." : "Valor de previdência informado no ofício."; }
+  else if(prevOf>0){ prev = prevOf; prevNota = fed ? "PSS do ofício" : (src.prevOficio==="autos" ? "Do cálculo da contadoria" : "Retida no ofício"); prevRegra = fed ? "Valor de PSS informado pelo juízo no ofício, retido no saque (Res. CJF 983/2026, art. 37)." : "Valor de previdência informado no ofício."; }
   else {
-    const aliq = f.ente==="estado" ? 14.25 : f.ente==="goiania" ? 11 : 14;
-    const baseDed = Math.max(0, bruto);
-    let base = baseDed;
-    const txtBase = `${brl(bruto)} (crédito total; a previdência incide sobre a remuneração inteira, inclusive a parte que vai para o advogado)`;
-    if(f.credorTipo==="aposentado" && f.ente==="estado"){
-      const n = Math.max(1, nm||1); const lim = Math.max(3000, smEm(exp));
-      base = Math.max(0, baseDed/n - lim)*n;
-      prevRegra = `Aposentado/pensionista do Estado: 14,25% só sobre o que passa de ${brl(lim)} por mês (LC 161/2020, art. 18, §2º). Base ${txtBase}, dividida por ${n} ${n===1?"mês":"meses"}.`;
-    } else if(fed){ prevRegra = `PSS zerado no ofício: regra da casa de 14% sobre ${txtBase}. A Lei 10.887/2004 (art. 16-A) prevê 11%; as alíquotas da EC 103/2019 são progressivas.`; }
-    else if(f.ente==="estado"){ prevRegra = `GOIASPREV (LC 161/2020): 14,25% sobre ${txtBase}.`; }
-    else if(f.ente==="goiania"){ prevRegra = `RPPS de Goiânia (GoiâniaPrev): 11% sobre ${txtBase} (Lei 8.095/2002, mantida pela LC 312/2018). Alíquota praticada: 11%, confirmada por contracheques e pela Prefeitura (jul/2026).`; }
-    else { prevRegra = `Regra da casa: 14% sobre ${txtBase}. Conferir a lei do RPPS do município.`; }
-    if(f.credorTipo==="ativo17") prevRegra += " Ingresso após 06/07/2017: a base real se limita ao teto do RGPS; o cálculo fica conservador.";
-    prev = base*aliq/100; prevNota = "Regra da casa (" + pct(aliq) + ")";
-    if(src.prevOficio==="oficio" && prev>0){ prevNota = "Ofício zerado: regra da casa (" + pct(aliq) + ")"; prevCorrigida = true; }
+    const comps = (leitura.titulo && leitura.titulo.competencias) || [];
+    if(fed){ prevSemLei = true; prevRegra = "Servidor federal com PSS zerado no ofício: as alíquotas são progressivas por faixa (EC 103/2019, art. 11; antes de 03/2020, 11% pela Lei 10.887/2004). A Mesa não calcula sem as remunerações mensais: informe o PSS do ofício."; prevNota = "Falta base legal"; }
+    else {
+      const R = regraPrev(f.ente, f.credorTipo, Math.max(0,bruto), nm, comps, exp || hoje());
+      if(R.semLei){ prevSemLei = true; prevNota = "Falta base legal"; prevRegra = R.motivoSemLei + " Informe a previdência do ofício ou envie a lei."; prev = 0; }
+      else {
+        prev = R.prev; prevNota = (PREV_LEI[f.ente].nome) + " (" + R.aliqTxt + ")";
+        prevRegra = `${PREV_LEI[f.ente].nome}: ${R.fontes.join("; ")}. Incide sobre o crédito inteiro, inclusive a parte do advogado (a remuneração é do servidor). ${R.avisos.join(" ")}`;
+        if(src.prevOficio==="oficio" && prev>0){ prevNota = "Ofício zerado: pela lei (" + R.aliqTxt + ")"; prevCorrigida = true; }
+      }
+    }
   }
 
   let irComprador = 0;
@@ -1277,8 +1325,24 @@ function calc(){
     else { irNota = "Conferir"; irSemConferencia = true; irRegra = "Decisão da Justiça Estadual contra o INSS: não se aplica a retenção de 3% (só Justiça Federal). Se o benefício for tributável (aposentadoria, pensão), o IR é pelo RRA, retido no pagamento: conferir o número de meses com o Dr. Paulo."; }
   }
   else if(fed){
-    if(f.simples){ irNota = "Dispensado (Simples)"; irRegra = "Cessionária optante do Simples Nacional: dispensa da retenção de 3% (Res. CJF 458/2017, art. 26, §1º)."; }
-    else { const b = Math.max(0, bruto - hon); irComprador = b*0.03; irObj = {ir:0, mensal:0, faixa:"3%", base:b}; irNota = "Não desconta do crédito"; irRegra = `O banco retém 3% (${brl(irComprador)}) no pagamento, mas em nome do COMPRADOR: é imposto do comprador, não do crédito, por isso não reduz o valor líquido. PJ do lucro real/presumido abate do IRPJ; PJ do Simples não sofre retenção. ` + (f.ente==="inss" ? irCredorINSS(bruto, nm) : "") + "Crédito federal cedido: retenção de 3% sobre o valor pago ao cessionário, em nome dele, ainda que o principal seja RRA (Res. CJF 458/2017, arts. 25, parágrafo único, 26 e 29; Lei 10.833/2003, art. 27). O banco retém no pagamento, em nome do cessionário; para PJ do lucro real ou presumido é antecipação, abatida do IRPJ devido (Res. CJF 458/2017, art. 26, §2º, II). PJ do Simples: marcar a opção e a retenção é dispensada."; }
+    // Res. CJF 983/2026 (DOU 20/03/2026): IR retido em nome do CEDENTE com os dados da requisição (art. 32, parágrafo único);
+    // a cessão só alcança o valor líquido, depois da provisão do IR (art. 22). A regra antiga de 3% sobre a cessão (Res. 458/2017, art. 29) saiu.
+    const ehRRA = f.credorTipo==="beneficio" || SERVIDOR(f.credorTipo);
+    const ced = "IR retido em nome do autor (cedente), com os dados da requisição, mesmo depois da cessão (Res. CJF 983/2026, art. 32, parágrafo único). A cessão só alcança o valor líquido, depois do IR (art. 22), então o IR reduz o que o comprador recebe. ";
+    const simplesNota = f.simples ? "A compradora ser do Simples não dispensa mais a retenção: ela é feita em nome do cedente. " : "";
+    if(f.ente==="inss" && leitura.beneficioIsento){ irNota = "Isento"; irRegra = `${ced}O ${leitura.beneficioIsento} é tratado como isento: o banco dispensa a retenção mediante declaração (art. 34, §5º). ${simplesNota}`; }
+    else if(ehRRA && nm>0){
+      const baseIR = Math.max(0, bruto - prev);
+      irObj = irRRA(baseIR, nm);
+      irNota = irObj.ir>0 ? `RRA ${nm} meses` : "Zero (RRA abaixo da faixa isenta)";
+      irRegra = `${ced}RRA pela tabela × ${nm} meses (art. 34, §2º; Lei 7.713/88, art. 12-A): base ${brl(baseIR)}${prev>0?" (já sem o PSS, art. 34, §4º)":""}, ${brl(irObj.mensal)} por mês, faixa ${irObj.faixa}${irObj.ir>0?", IR "+brl(irObj.ir):": IR zero"}. `;
+      const vc = leitura.reqTRF && leitura.reqTRF.valCor, anoReq = (f.expedicao||"").slice(0,4);
+      if(vc>0 && anoReq && anoReq===hoje().slice(0,4)) irRegra += `Se o saque sair ainda em ${anoReq}, a parte do ano da requisição (${brl(vc)}) sofre 3% (${brl(vc*0.03)}) em vez da tabela (art. 35, I); saque no ano seguinte, tudo pela tabela (art. 35, parágrafo único). `;
+      if(f.ente==="inss" && leitura.beneficio) irRegra += `Benefício: ${leitura.beneficio} (rendimento tributável; a isenção por doença grave da Lei 7.713/88, art. 6º, XIV, só alcança aposentadoria, reforma e pensão). `;
+      irRegra += simplesNota;
+    }
+    else if(ehRRA){ irNota = "Conferir"; irSemConferencia = true; irRegra = `${ced}É rendimento sujeito a RRA, mas falta o número de meses: o banco retém pela tabela × meses informados na requisição (art. 34). Informe os meses. ${simplesNota}`; }
+    else { const b = Math.max(0, bruto); irObj = {ir:b*0.03, mensal:0, faixa:"3%", base:b}; irNota = "3% (Lei 10.833/2003, art. 27)"; irRegra = `${ced}Crédito federal que não é RRA: retenção de 3% sobre o valor pago, sem deduções (art. 33; Lei 10.833/2003, art. 27). Dispensada se o rendimento for isento ou não tributável, mediante declaração ao banco (art. 33, §1º). ${simplesNota}`; }
   }
   else if(!fed && nm>0){
     const jm = (leitura.jurosMora>0 && leitura.jurosMora<bruto) ? leitura.jurosMora : 0; const baseIR = Math.max(0, bruto - jm - prev);
@@ -1358,13 +1422,14 @@ function calc(){
     if(TT && TT.homologInercia) add("MÉDIO", `Os cálculos foram homologados por inércia do ente (mov. ${TT.homologInercia}), sem conferência. Mesmo depois da homologação, o ente pode pedir correção de erro material (ex.: meses ou parcelas fora do título).`);
   }
   if(leitura.rpvSucumbencial){ const si = leitura.sucInfo||{}; add("PROCEDIMENTAL", `Há RPV de honorários sucumbenciais${si.mov?" (mov. "+si.mov+")":""}${si.valor?", de "+brl(si.valor):""}${si.quem?", em favor de "+si.quem.trim():""}. É crédito do advogado, não do autor: foi ignorada. O cálculo usa só o requisitório do autor${leitura.movOficio?" (mov. "+leitura.movOficio+")":""}.`); }
-  if(prevCorrigida) add("MÉDIO", `O ofício veio com previdência zerada e a verba não foi declarada sem incidência pela contadoria. Aplicada a regra da casa: ${brl(prev)}. O líquido do tribunal pode estar acima do que será pago.`);
+  if(prevSemLei) add("ALTO", `FALTA BASE LEGAL para a previdência: ${prevRegra}`);
+  if(prevCorrigida) add("MÉDIO", `O ofício veio com previdência zerada e a verba não foi declarada sem incidência pela contadoria. Calculada pela lei do ente: ${brl(prev)}. O líquido do tribunal pode estar acima do que será pago.`);
   if(f.ente==="goiania" && SERVIDOR(f.credorTipo) && !(num(f.outras)>0)) add("MÉDIO", "Servidor municipal de Goiânia: há desconto de IMAS (plano de saúde municipal — Lei 8.095/2002) que não está incluído. Verificar no contracheque/cálculo da Prefeitura o valor do IMAS-SAÚDE e lançar no campo 'Plano de saúde'. Sem esse valor, o líquido está superestimado.");
   if(leitura.indBloqueada && !verbaIsenta && !regraLegalDetectada) add("PROCEDIMENTAL", `A Mesa encontrou menção a "${leitura.indBloqueada}" no processo, mas há evidência de que o credor é servidor público. Se a verba for indenizatória (férias não gozadas, licença-prêmio, dano moral), selecione a natureza no campo "Natureza da verba" para zerar IR e previdência com fundamento legal.`);
   if(regraLegalDetectada && (regraLegalDetectada.irIsento || regraLegalDetectada.prevIsento) && src.verbaIsenta==="auto") add("PROCEDIMENTAL", `BASE LEGAL: a Mesa identificou automaticamente a verba como "${regraLegalDetectada.label}" e zerou ${regraLegalDetectada.irIsento && regraLegalDetectada.prevIsento ? "IR e previdência" : regraLegalDetectada.irIsento ? "IR" : "previdência"}. Fundamento: ${regraLegalDetectada.irIsento ? regraLegalDetectada.irFund : regraLegalDetectada.prevFund} Conferir.`);
   if(leitura.particularPorOficio && sServ>0) add("MÉDIO", `O ofício veio com previdência zero e IR preenchido, e a Mesa classificou como "particular" (não servidor). Porém há ${sServ} menção(ões) a termos de servidor no processo (contracheque, matrícula, cargo). CONFERIR: se for servidor, a previdência está zerada indevidamente.`);
   if(irCorrigido) add("MÉDIO", `O ofício veio com IR zero, mas o RRA dá ${brl(ir)}. Usado o valor recalculado.`);
-  ultimo = {f, bruto, principal, principalInformado, hon, honPct, prev, prevNota, prevRegra, ir, irObj, irNota, irRegra, outras, base, des, preco, T, mod, modNota, R, nm, fed, liqTrib, liqRecalc, difLiq, divergeLiq, prevCorrigida, irCorrigido, irSemConferencia, irRefeito, pergMeses, pergCred, irDiverge, liqTribRef, semDestaque, liqComDestaque, irComprador, prevC, irC, honCli, honCliPct, honCliRespondido};
+  ultimo = {f, bruto, principal, principalInformado, hon, honPct, prev, prevNota, prevRegra, ir, irObj, irNota, irRegra, outras, base, des, preco, T, mod, modNota, R, nm, fed, liqTrib, liqRecalc, difLiq, divergeLiq, prevCorrigida, prevSemLei, irCorrigido, irSemConferencia, irRefeito, pergMeses, pergCred, irDiverge, liqTribRef, semDestaque, liqComDestaque, irComprador, prevC, irC, honCli, honCliPct, honCliRespondido};
   ultimo.gate = portao(ultimo); window.__ultimo = ultimo; window.__leitura = leitura;
   try { ultimo.conferencia = conferirValores(); } catch(e) { ultimo.conferencia = {_resumo:{texto:"Erro: "+(e&&e.message||e)}}; }
   let ver = ultimo.gate.status==="aguardar" ? "AGUARDAR" : ultimo.gate.status==="naocomprar" ? "INVIÁVEL" : ((ultimo.gate.status==="encaminhar" || R.some(r=>r[0]==="MÉDIO"||r[0]==="ALTO")) ? "VIÁVEL COM RESSALVAS" : "VIÁVEL");
@@ -1391,38 +1456,30 @@ function conferirValores(){
     if(prevOf > 0) item("prev","ALERTA",0,prevOf,"Credor não é servidor, mas ofício traz previdência de "+brl(prevOf)+". Pode ser verba com incidência especial ou erro do ofício.");
     else item("prev","OK",0,prevOf||0,"Não incide previdência (credor: "+CREDOR[f.credorTipo]+").");
   } else {
-    // Servidor: calcular regra da casa
-    const aliq = f.ente==="estado" ? 14.25 : f.ente==="goiania" ? 11 : 14;
-    const bruto = u.bruto || 0;
-    let baseEsperada = bruto;
-    let regraDesc = "";
-    if(f.credorTipo==="aposentado" && f.ente==="estado"){
-      const n = Math.max(1, u.nm||1);
-      const lim = Math.max(3000, smEm(f.expedicao || hoje()));
-      baseEsperada = Math.max(0, bruto/n - lim)*n;
-      regraDesc = `Aposentado Estado: ${pct(aliq)} sobre excedente de ${brl(lim)}/mês (LC 161/2020, art. 18 §2º). Base: ${brl(baseEsperada)}.`;
-    } else if(f.credorTipo==="ativo17"){
-      regraDesc = `Servidor ingresso pós-07/2017: ${pct(aliq)} sobre base limitada ao teto RGPS. Cálculo conservador sobre total.`;
-    } else {
-      regraDesc = `Servidor ativo: ${pct(aliq)} sobre ${brl(bruto)}.`;
-    }
-    const prevEsperada = baseEsperada * aliq / 100;
-    if(O.semIncidencia && !(prevOf>0)){
+    // Servidor: regra pela lei do ente, competência a competência
+    const RP = u.fed ? null : regraPrev(f.ente, f.credorTipo, u.bruto||0, u.nm, (leitura.titulo && leitura.titulo.competencias)||[], f.expedicao || hoje());
+    const aliq = RP && !RP.semLei ? RP.aliqTxt : "—";
+    const regraDesc = u.fed ? "Servidor federal: PSS progressivo (EC 103/2019, art. 11)." : RP.semLei ? RP.motivoSemLei : RP.fontes.join("; ");
+    const prevEsperada = RP && !RP.semLei ? RP.prev : 0;
+    const semLeiConf = u.fed || (RP && RP.semLei);
+    if(semLeiConf && prevOf > 0){
+      item("prev","ALERTA",null,prevOf,"Previdência do ofício ("+brl(prevOf)+") aceita sem conferência: "+regraDesc);
+    } else if(O.semIncidencia && !(prevOf>0)){
       item("prev","OK",0,0,"Verba classificada sem incidência pela contadoria. Previdência zero conferida.");
     } else if(prevOf > 0){
       if(Math.abs(prevOf - prevEsperada) <= TOL){
-        item("prev","OK",prevEsperada,prevOf,"Previdência do ofício confere com a regra da casa ("+pct(aliq)+"). "+regraDesc);
+        item("prev","OK",prevEsperada,prevOf,"Previdência do ofício confere com a lei ("+aliq+"). "+regraDesc);
       } else if(prevOf < prevEsperada){
-        item("prev","ALERTA",prevEsperada,prevOf,"Previdência do ofício ("+brl(prevOf)+") é MENOR que a regra da casa ("+brl(prevEsperada)+"). O tribunal pode reter mais no pagamento. "+regraDesc);
+        item("prev","ALERTA",prevEsperada,prevOf,"Previdência do ofício ("+brl(prevOf)+") é MENOR que o cálculo pela lei ("+brl(prevEsperada)+"). O tribunal pode reter mais no pagamento. "+regraDesc);
       } else {
-        item("prev","DIVERGE",prevEsperada,prevOf,"Previdência do ofício ("+brl(prevOf)+") é MAIOR que a regra da casa ("+brl(prevEsperada)+"). Líquido pode ser maior que o estimado. "+regraDesc);
+        item("prev","DIVERGE",prevEsperada,prevOf,"Previdência do ofício ("+brl(prevOf)+") é MAIOR que o cálculo pela lei ("+brl(prevEsperada)+"). Líquido pode ser maior que o estimado. "+regraDesc);
       }
     } else {
       // Ofício zerado ou sem valor
       if(prevEsperada > 0){
-        item("prev","DIVERGE",prevEsperada,0,"Ofício sem previdência, mas a regra da casa indica "+brl(prevEsperada)+" ("+pct(aliq)+"). "+regraDesc+" Mesa usou: "+brl(u.prev)+".");
+        item("prev","DIVERGE",prevEsperada,0,"Ofício sem previdência, mas pela lei seriam "+brl(prevEsperada)+" ("+aliq+"). "+regraDesc+" Mesa usou: "+brl(u.prev)+".");
       } else {
-        item("prev","OK",0,0,"Previdência zero, compatível com a regra da casa.");
+        item("prev", semLeiConf?"FALTA":"OK",0,0, semLeiConf ? "Sem lei do ente no projeto: a Mesa não confere a previdência. "+regraDesc : "Previdência zero, compatível com a lei.");
       }
     }
   }
@@ -1435,7 +1492,7 @@ function conferirValores(){
     if(irOf > 0) item("ir","ALERTA",0,irOf,"Credor tipo "+CREDOR[f.credorTipo]+" não deveria ter IR, mas ofício traz "+brl(irOf)+".");
     else item("ir","OK",0,0,"Isento/não incide ("+CREDOR[f.credorTipo]+").");
   } else if(fed){
-    item("ir","OK",null,null,"Federal: IR é 3% sobre o valor pago ao cessionário, retido no pagamento. Não desconta do crédito.");
+    item("ir", u.irSemConferencia?"FALTA":"OK", u.ir, irOf>0?irOf:null, "Federal (Res. CJF 983/2026, arts. 32 a 35): IR retido em nome do cedente, com os dados da requisição; reduz o líquido. Mesa: "+brl(u.ir)+" ("+u.irNota+").");
   } else if(nm > 0){
     // Recalcular IR pelo RRA
     const jm = (O.jurosMora > 0 && O.jurosMora < u.bruto) ? O.jurosMora : 0;
@@ -1573,6 +1630,7 @@ function portao(u){
     return {status:"aguardar", motivos:["Não há ofício de RPV/precatório nem cálculo da contadoria nos autos. O processo ainda não chegou ao ponto de compra."]};
   }
   if(u.bruto<=0) return {status:"naocomprar", motivos:["Não há valor de crédito."]};
+  if(u.prevSemLei) return {status:"aguardar", motivos:["FALTA BASE LEGAL para calcular a previdência. " + u.prevRegra, "A Mesa não preenche alíquota sem lei. Digite a previdência que consta no ofício (campo Previdência/PSS) ou envie a lei do ente para cadastro."]};
   if(u.base<=0) return {status:"naocomprar", motivos:["Depois das deduções não sobra valor para comprar."]};
   if(leitura.pago) return {status:"naocomprar", motivos:[`Há sinal de que o crédito já foi pago ou levantado (pág. ${leitura.pago}). Conferir antes de qualquer contato.`]};
   if(aprovacao && Math.abs((aprovacao.base||0) - u.base) < 0.01 && Math.abs((aprovacao.bruto||0) - u.bruto) < 0.01) return {status:"aprovado", motivos:[]};
@@ -1599,7 +1657,7 @@ function portao(u){
   if(leitura.cucDiverge) M.push("O total do cálculo da contadoria é diferente do valor do ofício.");
   if(leitura.cucSemIR) M.push(`A contadoria apurou IR de ${brl(leitura.cucSemIR)} (RRA), mas o "valor líquido" dela não desconta esse IR. A Mesa descontou.`);
   if(u.divergeLiq) M.push(`O líquido do tribunal (${brl(u.liqTrib)}) e o recalculado (${brl(u.liqRecalc)}) diferem em ${brl(Math.abs(u.difLiq))}. A proposta usa o menor.`);
-  if(u.prevCorrigida) M.push("Ofício com previdência zerada para servidor: aplicada a regra da casa. Confirmar.");
+  if(u.prevCorrigida) M.push("Ofício com previdência zerada para servidor: calculada pela lei do ente. Confirmar.");
   if(u.irCorrigido) M.push("Ofício com IR zero, mas o RRA indica imposto. Confirmar.");
   if(u.irDiverge!=null) M.push(`IR do ofício (${brl(u.irDiverge)}) diferente do calculado pelo RRA com ${u.nm} meses (${brl(u.ir)}).`);
   
